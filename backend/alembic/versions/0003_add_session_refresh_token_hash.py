@@ -1,6 +1,6 @@
 """Add refresh_token_hash and revoked_at to sessions
 
-Revision ID: 0003_add_session_refresh_token_hash
+Revision ID: 0003_session_refresh
 Revises: 0002_add_daily_reflections
 Create Date: 2026-11-03 23:55:00.000000
 
@@ -9,7 +9,7 @@ from typing import Sequence, Union
 from alembic import op, context
 import sqlalchemy as sa
 
-revision: str = '0003_add_session_refresh_token_hash'
+revision: str = '0003_session_refresh'
 down_revision: Union[str, None] = '0002_add_daily_reflections'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
