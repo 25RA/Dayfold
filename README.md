@@ -157,7 +157,7 @@ To prevent race conditions, stale execution, or unauthorized payload modificatio
 - The backend recalculates and verifies the hash before running `_execute_action`. Any mismatch immediately rejects the request with HTTP 409 Conflict.
 
 ### 4. Append-Only Audit Logging
-All state transitions—whether a schedule is generated, an action is staged, a proposal is approved, or an action is rejected—are recorded in an immutable `audit_log` table, providing a transparent operational history.
+All state transitions—whether a schedule is generated, an action is staged, a proposal is approved, or an action is rejected—are recorded in an append-only audit history with actor, timestamp, and target entity metadata, providing a transparent operational history.
 
 ### 5. Seamless AI Fallback
 Dayfold does not hard-fail if the Gemini API key is missing, network access is restricted, or quota limits are reached. The agent automatically detects unavailability and switches to the deterministic rule-based parser (`extractor.py`), allowing intent extraction to proceed without an active AI key.
@@ -181,33 +181,6 @@ What-If planning operates by creating draft plans flagged with `is_simulation = 
 • Dual-Mode Auth & CSRF Security
 ```
 
-### Implemented & Verified
-- [x] Spoken voice dictation (`VoiceOrb`) and text `Omnibar` input.
-- [x] Google GenAI SDK integration with Gemini 3.6 Flash and Pydantic schema validation.
-- [x] Deterministic heuristic regex/NLP fallback parser when AI is unconfigured or unreachable.
-- [x] Pure Python interval planning engine with focus block limits, breaks, and buffers.
-- [x] Three profile lenses: Student, Professional, and Personal.
-- [x] Staged `PendingAction` workflow with SHA-256 payload integrity validation.
-- [x] Interactive `ApprovalCard` UI with explicit user confirmation and rejection paths.
-- [x] Action execution engine transitioning plan and task statuses upon approval.
-- [x] Append-only audit logging across all state transitions.
-- [x] Sandboxed What-If schedule simulation with automatic 24-hour draft cleanup.
-- [x] Daily Reflection journaling (Accomplishments, Friction, Next Intent) and weekly review synthesis.
-- [x] Dual-mode authentication (Bearer JWT & HttpOnly cookies) with double-submit CSRF protection.
-- [x] Multi-worker Redis token revocation and rate limiting with local in-memory fallback.
-- [x] Relational database persistence with full linear Alembic migrations.
-
-### In Progress
-- [ ] Bi-directional calendar synchronization with external providers (Google Calendar, Outlook, CalDAV).
-- [ ] Automated recurring rule engine (RRULE support for repeating tasks and fixed events).
-- [ ] Touch-optimized timeline block drag-and-drop and pinch-to-zoom for mobile browsers.
-
-### Planned
-- [ ] End-to-end encrypted device-to-device local synchronization.
-- [ ] Collaborative multi-agent delegation for shared team commitments.
-- [ ] Native wearable and ambient voice-first interaction clients.
-
----
 
 ## Getting Started
 
