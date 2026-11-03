@@ -1,0 +1,30 @@
+flowchart LR
+    %% Dayfold — From Intent to an Unfolded Day
+    %% Product Workflow Flowchart (7 Core Stages)
+
+    Start([Start: Open Dayfold]):::terminator --> Stage1["1. USER INPUT<br/>Voice, text, priorities & deadlines"]:::stage
+    Stage1 --> Stage2["2. AI UNDERSTANDING<br/>Gemini extraction with rule fallback"]:::stage
+    Stage2 --> Stage3{"3. CONTEXT<br/>VALIDATION"}:::decision
+
+    Stage3 -- "No: Incomplete" --> Clarify["Ask for Clarification<br/>Prompt for missing details"]:::feedback
+    Clarify --> Stage1
+
+    Stage3 -- "Yes: Validated" --> Stage4["4. SMART PLANNING<br/>Python engine: time, focus & breaks"]:::stage
+    Stage4 --> Stage5["5. PROPOSED SCHEDULE<br/>Conflict-free visual day plan"]:::stage
+    Stage5 --> Stage6{"6. USER<br/>APPROVAL?"}:::decision
+
+    Stage6 -- "Reject: Revise" --> Adjust["Refine Intent & Adjust<br/>Modify tasks or constraints"]:::feedback
+    Adjust --> Stage1
+
+    Stage6 -- "Approve" --> Stage7["7. EXECUTE & TRACK<br/>Execute action, log audit & update day"]:::stage
+    Stage7 --> End([Your Day, Unfolded]):::terminator
+
+    %% Secondary capabilities
+    Stage7 -.-> WhatIf["What-If Scenarios<br/>Simulate schedule trade-offs"]:::secondary
+    Stage7 -.-> Reflection["Evening Reflection<br/>Track daily wins & habit patterns"]:::secondary
+
+    classDef terminator fill:#0B0D12,stroke:#0B0D12,color:#FFFFFF,font-weight:bold;
+    classDef stage fill:#FFFFFF,stroke:#D4CEBF,stroke-width:1.5px,color:#0B0D12;
+    classDef decision fill:#FAF5EE,stroke:#F26A3D,stroke-width:2px,color:#0B0D12;
+    classDef feedback fill:#FFF5F2,stroke:#C74E22,stroke-width:1.5px,stroke-dasharray:4 3,color:#C74E22;
+    classDef secondary fill:#F0F7F7,stroke:#1B7F83,stroke-width:1px,stroke-dasharray:3 3,color:#1B7F83;

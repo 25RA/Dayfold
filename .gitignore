@@ -110,7 +110,17 @@ frontend/src/assets/react.svg
 frontend/src/assets/vite.svg
 
 # ─── Optional Specification Documents ────────────────────────────────────────
+# --- Optional Specification Documents ---
 docs/
+!docs/
+!docs/images/
+!docs/images/dayfold-landing.png
+!docs/images/dayfold-dashboard.png
+!docs/images/dayfold-deliverables.png
+!docs/diagrams/
+!docs/diagrams/dayfold-product-flow.png
+!docs/diagrams/dayfold-product-flow.mmd
+
 *.docx
 
 # ─── OS & IDE Files ──────────────────────────────────────────────────────────
