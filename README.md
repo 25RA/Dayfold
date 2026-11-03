@@ -1,4 +1,4 @@
--<div align="center">
+<div align="center">
 
 # Dayfold
 
@@ -21,8 +21,6 @@ All time calculations, interval arithmetic, and placement decisions are executed
 ---
 
 ## Product Preview
-
-> *The screenshots below capture Dayfold's interactive demo workspace and landing interface running in the local development environment.*
 
 ### Landing Interface — The Unfolding Day
 The entry point introduces the core philosophy: conversational capture paired with structured, workable time allocation.
