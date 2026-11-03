@@ -1,0 +1,126 @@
+# ─── Environment & Secrets ───────────────────────────────────────────────────
+# Exclude all actual secret environment files
+.env
+.env.*
+.env.local
+!.env.example
+!.env.production.example
+
+backend/.env
+backend/.env.*
+backend/.env.local
+!backend/.env.example
+!backend/.env.production.example
+
+frontend/.env
+frontend/.env.*
+frontend/.env.local
+!frontend/.env.example
+!frontend/.env.production.example
+
+# ─── Local Database Files & Backups (CRITICAL) ──────────────────────────────
+# Protect local user database and prevent committing populated SQLite databases
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+backend/dayfold.db*
+backend/*.db
+backend/*.db.*
+backend/baseline_table_counts.json
+
+# ─── Python Dependencies & Caches ────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+/lib/
+/lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Pytest & Coverage
+.pytest_cache/
+backend/.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ─── Node & Frontend Builds ──────────────────────────────────────────────────
+node_modules/
+frontend/node_modules/
+dist/
+dist-ssr/
+frontend/dist/
+frontend/dist-ssr/
+.vite/
+frontend/.vite/
+*.local
+
+# ─── Logs & Debugging ────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ─── Tests & Test Suites ────────────────────────────────────────────────────
+# Exclude test suites, acceptance tests, regression tests, and test runners
+backend/tests/
+backend/test_live_features.py
+
+# ─── Test, Scratch & Temporary Audit Files ───────────────────────────────────
+scratch/
+frontend/scratch_browser_acceptance.js
+
+# ─── Deployment Blueprint Deduplication ─────────────────────────────────────
+# Root render.yaml is the active deployment blueprint with rootDir: backend
+backend/render.yaml
+
+# ─── Unused Boilerplate Assets ──────────────────────────────────────────────
+# Unused template assets; real Dayfold assets (hero.png, icons) are preserved
+frontend/src/assets/react.svg
+frontend/src/assets/vite.svg
+
+# ─── Optional Specification Documents ────────────────────────────────────────
+docs/
+*.docx
+
+# ─── OS & IDE Files ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

@@ -1,0 +1,93 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+@import "@fontsource/instrument-serif";
+@import "@fontsource/geist";
+
+@layer base {
+  :root {
+    --bg: #FBF9F5;
+    --surface: #FFFFFF;
+    --surface-raised: #FFFFFF;
+    --surface-subtle: #F4F1EB;
+    --border: #E8E3D9;
+    --border-strong: #D6CFC1;
+    --text: #15181F;
+    --text-muted: #5A6070;
+    --text-subtle: #7B8191;
+
+    --ember: #F26A3D;
+    --ember-dark: #C74E22;
+    --ember-50: #FFF1EB;
+    --ember-100: #FFDFD1;
+    --ember-300: #FFA67F;
+    --ember-700: #A23C17;
+
+    --tide: #1B7F83;
+    --tide-100: #D5EEEC;
+    --tide-600: #146468;
+
+    --student: #5B63F0;
+    --student-tint: #ECEEFF;
+    --professional: #1B7F83;
+    --professional-tint: #E1F2F2;
+    --personal: #D98A1F;
+    --personal-tint: #FCF1DC;
+
+    --success: #2E9E6A;
+    --warning: #D9981E;
+    --danger: #D6453D;
+    --info: #3B7BD8;
+  }
+
+  .dark {
+    --bg: #0B0D12;
+    --surface: #12151C;
+    --surface-raised: #1A1E27;
+    --surface-subtle: #171B23;
+    --border: #262B36;
+    --border-strong: #343B49;
+    --text: #ECEFF4;
+    --text-muted: #A0A8B6;
+    --text-subtle: #7C8695;
+
+    --ember: #F26A3D;
+    --ember-dark: #FFA67F;
+    --ember-50: #2A1710;
+    --ember-100: #3D2217;
+    --ember-300: #FFA67F;
+    --ember-700: #FFA67F;
+
+    --tide: #28A5AA;
+    --tide-100: #12302F;
+    --tide-600: #28A5AA;
+
+    --student: #7B82FF;
+    --student-tint: #1C1F3D;
+    --professional: #28A5AA;
+    --professional-tint: #12302F;
+    --personal: #E6A23C;
+    --personal-tint: #3A2A10;
+
+    --success: #38B87B;
+    --warning: #EBB036;
+    --danger: #E65A52;
+    --info: #5593EC;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .font-serif {
+    font-family: 'Instrument Serif', Georgia, serif;
+  }
+
+  .font-mono {
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
