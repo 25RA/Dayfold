@@ -1,207 +1,337 @@
 # Dayfold
 
-# An AI Chief of Staff for Everyday Decisions.
+## An AI Chief of Staff for Everyday Decisions.
 
-The Unfolding Day
+*The Unfolding Day*
 
-An intelligent planning companion that turns your responsibilities, priorities and commitments into a day that works.
+> **Talk naturally. Plan intelligently. Unfold your day.**
 
----
+Dayfold is an intelligent planning companion that converts natural-language responsibilities, priorities, and commitments into a realistic, structured daily schedule.
 
-## Overview
+Its central engineering principle is:
 
-Dayfold bridges the gap between conversational intent and realistic time management. Most scheduling tools force users into rigid forms and manual calendar arithmetic, while naive LLM schedulers suffer from hallucinations, scheduling overlaps, and unverified calendar writes.
+> **AI understands intent. A deterministic planning engine constructs the schedule. The user retains control through explicit approval.**
 
-Dayfold separates these concerns cleanly:
-1. **The Language Interface**: A conversational AI layer powered by Google Gemini parses unstructured speech or text into structured tasks, fixed events, deadlines, and preferences.
-2. **The Deterministic Scheduler**: A pure Python planning engine performs the mathematical interval calculations, deadline prioritization, focus block splitting, buffer insertion, and break enforcement.
-3. **The Approval Gate**: The system cannot directly mutate schedules. Every proposed plan or change is staged as an approval card with a cryptographic SHA-256 payload integrity check. Changes take effect only upon explicit user approval and are committed to an append-only audit trail.
+All time calculations, interval arithmetic, and placement decisions are executed by deterministic Python logic rather than the LLM, preventing calendar hallucinations and unverified schedule mutations.
 
 ---
 
-## Core Capabilities
+## Product Preview
 
-- **Voice & Text Intent Extraction**: Speak naturally or type unstructured thoughts (e.g. *"Need to study operating systems for 2 hours before 4pm, team standup at 10am, and grab groceries"*). Dayfold extracts activities, estimates, deadlines, and commitments with structured JSON schema constraints.
-- **Deterministic Schedule Engine**: Calculates available working intervals, prioritizes high-urgency items, splits tasks exceeding focus limits into manageable blocks, enforces break rules, and outputs transparent scheduling rationales.
-- **Three Profile Lenses**: Tailor the planning experience to your context:
-  - **Student**: Manages classes, assignments, revision sessions, and exam study blocks.
-  - **Professional**: Balances meetings, focus blocks, deep work intervals, and buffer periods.
-  - **Personal**: Accommodates habits, daily routines, opening hours for errands, and personal commitments.
-- **What-If Schedule Simulations**: Test hypothetical scenarios (e.g., adding an urgent 90-minute lecture or advancing a project deadline) in an isolated, in-memory sandbox without altering your active schedule or database.
-- **Dayfold Reflection**: An end-of-day journaling workflow focused on three reflection anchors: Accomplishments, Friction, and Intent for tomorrow. Includes deterministic and AI-synthesized weekly reviews and trend discovery.
-- **Dual-Mode Security**: Supports Bearer token authentication for API clients alongside HttpOnly cookies with double-submit CSRF protection for browser sessions.
+> *The screenshots below capture Dayfold's interactive demo workspace and landing interface running in the local development environment.*
+
+### Landing Interface — The Unfolding Day
+The entry point introduces the core philosophy: conversational capture paired with structured, workable time allocation.
+
+![Dayfold Landing Interface](docs/images/dayfold-landing.png)
+
+### Central Planning Experience — 24-Hour Timeline Dashboard
+The primary workspace brings together natural-language intent capture, live timeline visualization with active NOW markers, contextual lenses, and human-in-the-loop approval cards.
+
+![Dayfold Dashboard Planning Experience](docs/images/dayfold-dashboard.png)
+
+### Deliverables & Actionable Commitments
+Beyond time slots, Dayfold tracks actionable deliverables, scheduled commitments, and follow-ups with transparent placement rationales.
+
+![Dayfold Deliverables & Follow-ups](docs/images/dayfold-deliverables.png)
 
 ---
 
-## Architecture: Interface vs. Scheduler
+## What Dayfold Does
+
+Every day, people navigate an influx of commitments: work tasks, lectures, study blocks, meetings, deadlines, and personal errands. Turning these into a workable day usually requires tedious manual calendar arithmetic: estimating durations, finding free gaps, calculating transit buffers, avoiding collisions, and constantly rescheduling when plans slip.
+
+Naive LLM productivity assistants attempt to schedule by generating calendar dates directly within text. This frequently leads to temporal hallucinations, overlapping commitments, invalid durations, and unverified calendar mutations.
+
+**Dayfold resolves this by decoupling language understanding from mathematical scheduling:**
+
+1. **Conversational Intent Capture**: You express what you need to accomplish using natural speech or text (*"Need to review operating systems lecture for 2 hours before 4pm, team standup at 10am, then study for 90 minutes"*).
+2. **Deterministic Time Optimization**: A pure Python scheduling engine calculates available working intervals, prioritizes by deadline urgency, bounds tasks by focus block thresholds, guards transition buffers, and inserts restorative rest breaks.
+3. **Integrity-Verified Approval Gate**: Dayfold never modifies your active schedule autonomously. Every proposed change is staged as an immutable pending action sealed with a SHA-256 payload hash. Nothing takes effect until you explicitly inspect and approve it.
+
+---
+
+## How Dayfold Works
+
+The diagram below outlines the seven-stage journey from unstructured human thought to an executed, workable day:
+
+![Dayfold Product Workflow](docs/diagrams/dayfold-product-flow.png)
+
+### The 7-Stage Core Workflow
+
+1. **User Input**: Express natural thoughts through spoken voice dictation (`VoiceOrb`) or text input (`Omnibar`), specifying tasks, priorities, estimated durations, and deadlines.
+2. **AI Understanding**: The Google GenAI SDK (Gemini 3.6 Flash) extracts structured entities (`FlexibleActivity`, `FixedCommitment`, `Ambiguity`) against rigid Pydantic schemas. If the AI service is unreachable or unconfigured, Dayfold automatically falls back to an internal deterministic NLP/regex parser.
+3. **Context Validation**: A decision gate evaluates whether the extracted information contains sufficient detail. If critical parameters are ambiguous, Dayfold generates a clarifying question prompt rather than guessing missing bounds.
+4. **Smart Planning**: Deterministic Python logic handles scheduling calculations instead of the LLM: computing available working intervals, scoring tasks by deadline urgency, enforcing focus block limits (e.g. 90 minutes), and inserting breaks (e.g. 15 minutes).
+5. **Proposed Schedule**: A structured, workable schedule is generated with placement rationales for every block and staged as an immutable `PendingAction`.
+6. **User Review & Approval**: The user reviews the proposal on an interactive `ApprovalCard`.
+   - **Reject**: Triggers the revision flow, allowing the user to refine constraints or adjust tasks with zero calendar mutations.
+   - **Approve**: Verifies the SHA-256 payload hash to prevent stale execution before triggering the execution pipeline.
+7. **Execute & Track**: Executes the approved action, updates scheduled tasks to in-progress, logs the event to the append-only audit trail, and renders the live schedule on the 24-hour timeline.
+   - **Secondary Branch — What-If Scenarios**: Safely simulate hypothetical schedule trade-offs in an isolated sandbox without altering live calendar records.
+   - **Secondary Branch — Evening Reflection**: Complete the day with a structured review of accomplishments, friction points, and habit patterns for weekly synthesis.
+
+---
+
+## Core Features
+
+### 1. Voice & Text Planning
+- **VoiceOrb Dictation**: Hands-free voice capture leveraging browser Web Speech recognition for natural dictation.
+- **Omnibar Input**: Universal command bar for quick text entry, rapid task capture, and conversational scheduling queries.
+- **Multimodal Capture**: Supports flexible activities, locked calendar appointments, and duration constraints in one command.
+
+### 2. AI-Powered Intent Understanding
+- **Schema-Constrained Extraction**: Leverages Gemini 3.6 Flash with Pydantic schemas to validate and structure extracted activity and constraint payloads.
+- **Ambiguity Detection**: Flags uncertain durations or incomplete time bounds, converting them into clarifying questions rather than guessing.
+- **Deterministic Fallback**: Local regex and heuristic parser activates when Gemini is unconfigured or unreachable, providing local extraction without requiring an active API key (as a fallback parser, not full offline application sync).
+
+### 3. Deterministic Schedule Generation
+- **Pure Python Scheduling Engine**: Mathematical interval arithmetic, collision avoidance, and deadline scoring executed strictly in Python—zero LLM involvement in calendar math.
+- **Focus Block Splitting**: Splits long tasks exceeding maximum focus block duration (default 90 min) into manageable blocks separated by rest periods.
+- **Transition Buffers**: Enforces guard times (default 10 min) before and after fixed commitments to account for context switching.
+- **Placement Rationales**: Every scheduled block carries an explanatory rationale code explaining why it was placed at that specific time.
+
+### 4. Contextual Profile Lenses
+- **Student Lens**: Tailored for classes, study sessions, exam countdowns, assignment deadlines, and academic deep work.
+- **Professional Lens**: Balances collaborative meetings, deep work focus blocks, administrative intervals, and project milestones.
+- **Personal Lens**: Organizes personal routines, habits, family commitments, and errand hours.
+
+### 5. What-If Schedule Simulations
+- **Sandboxed Experiments**: Test schedule adjustments (e.g., adding an emergency meeting or shortening available hours) in an isolated draft state.
+- **Zero Production Mutation**: Simulations run in-memory and draft database states, automatically pruned after 24 hours without affecting the active timeline.
+
+### 6. Dayfold Reflection & Insights
+- **Three Reflection Anchors**: Daily journaling capturing *Accomplishments*, *Friction Points*, and *Next Intent*.
+- **Weekly Trend Discovery**: Analyzes completed tasks, friction causes, and focus metrics across days to identify productivity patterns.
+
+### 7. Integrity-Verified Approval Gate
+- **Immutable PendingAction**: Schedule proposals are staged as immutable database records with expiration timestamps.
+- **SHA-256 Tamper Protection**: The client sends the payload hash upon approval; execution aborts if the proposal changed between display and confirmation.
+- **Explicit Rejection**: Rejections are recorded and discard the draft cleanly with zero calendar mutations.
+
+### 8. Security & Auditability
+- **Dual-Mode Authentication**: Bearer token headers for programmatic API access alongside HttpOnly, SameSite cookies for browser sessions.
+- **Double-Submit CSRF Validation**: Verifies cryptographic CSRF tokens on all state-changing browser requests (`POST`, `PUT`, `PATCH`, `DELETE`).
+- **Append-Only Audit Trail**: Every proposed, approved, rejected, or executed action is immutably logged with actor, timestamp, and target entity metadata.
+
+---
+
+## Technology Stack
+
+| Layer | Technologies | Purpose in Dayfold |
+| :--- | :--- | :--- |
+| **Frontend UI** | **React 19** &bull; **TypeScript** | Declarative component architecture with strict end-to-end type safety. |
+| **Build & Tooling** | **Vite 6** &bull; **Tailwind CSS v4** | Instant HMR development server with custom editorial design tokens. |
+| **State & Routing** | **Zustand v5** &bull; **React Router v7** | Lightweight client state for auth, workspace, and voice; client-side navigation. |
+| **Client Network** | **Axios** | Interceptor pipeline managing token refresh and CSRF token propagation. |
+| **Backend Runtime** | **Python 3.10+** &bull; **FastAPI** | Asynchronous web framework for REST APIs and automatic OpenAPI documentation. |
+| **Data Validation** | **Pydantic v2** &bull; `pydantic-settings` | Strict request/response modeling and environment configuration. |
+| **Persistence & ORM** | **SQLAlchemy 2.0** (`AsyncSession`) | Asynchronous database access with connection pooling for users, tasks, plans, and audit logs. |
+| **Migrations** | **Alembic** | Version-controlled, linear schema migration scripts. |
+| **Database Engines** | **SQLite** (`aiosqlite`) &bull; **PostgreSQL** | Zero-setup asynchronous SQLite for local development; `asyncpg` runtime and `psycopg2-binary` migrations for PostgreSQL. |
+| **Distributed Store** | **Redis** (`redis.asyncio`) | Multi-worker sliding-window rate limiting (Lua scripts) and token revocation, with thread-safe in-memory fallback. |
+| **AI Integration** | **Google GenAI SDK** (`google-genai`) | Gemini 3.6 Flash structured entity extraction with schema validation. |
+| **Rule-Based Engine** | **Custom Python NLP / Regex** | Local heuristic fallback parser when the Gemini API is unconfigured or unreachable. |
+| **Security & Cryptography** | `bcrypt` &bull; `python-jose` &bull; SHA-256 | Direct password hashing, signed JWT tokens, and action payload integrity checks. |
+
+---
+
+## Engineering Highlights
+
+### 1. Separation of Concerns: Language vs. Scheduling
+Large language models should never perform arithmetic scheduling. LLMs excel at parsing nuanced human prose into semantic structures. Conversely, deterministic algorithms excel at interval arithmetic, constraint satisfaction, and collision resolution. Dayfold strictly limits AI to semantic parsing, handing the structured output to a deterministic Python engine.
+
+### 2. Constraint-Aware Schedule Construction
+The scheduling engine (`backend/app/services/planner/engine.py`) employs a deterministic greedy interval scheduling algorithm with priority and deadline urgency scoring:
+- Filters out non-working hours based on user preferences.
+- Locks fixed appointments (`CalendarEvent`) in place as hard obstacles.
+- Computes available free intervals.
+- Scores tasks based on priority, deadline proximity, and duration.
+- Greedily places highest-scoring tasks into available free intervals.
+- Splits tasks exceeding focus limits (default 90 min) and inserts restorative breaks (default 15 min).
+
+### 3. Cryptographic Action Integrity
+To prevent race conditions, stale execution, or unauthorized payload modification between when a schedule is reviewed and when it is approved:
+- A canonical SHA-256 digest is computed over the proposed plan payload at staging time.
+- The client submits this hash upon approval (`POST /actions/{id}/approve`).
+- The backend recalculates and verifies the hash before running `_execute_action`. Any mismatch immediately rejects the request with HTTP 409 Conflict.
+
+### 4. Append-Only Audit Logging
+All state transitions—whether a schedule is generated, an action is staged, a proposal is approved, or an action is rejected—are recorded in an immutable `audit_log` table, providing a transparent operational history.
+
+### 5. Seamless AI Fallback
+Dayfold does not hard-fail if the Gemini API key is missing, network access is restricted, or quota limits are reached. The agent automatically detects unavailability and switches to the deterministic rule-based parser (`extractor.py`), allowing intent extraction to proceed without an active AI key.
+
+### 6. Sandboxed Schedule Simulation
+What-If planning operates by creating draft plans flagged with `is_simulation = True`. Users can test hypothetical scenarios without risk of overwriting committed schedules. A background pruning utility automatically cleans up stale draft simulations older than 24 hours.
+
+---
+
+## Development Roadmap
 
 ```
-User Input (Voice / Text)
-          │
-          ▼
-┌────────────────────────────────────────┐
-│      Conversational AI Layer           │
-│   (Google Gemini / Local Parser)       │
-│  - Entity extraction                   │
-│  - Schema-constrained JSON             │
-│  - Disambiguation questions            │
-└────────────────────────────────────────┘
-          │ Structured Intent Payload
-          ▼
-┌────────────────────────────────────────┐
-│     Deterministic Planning Engine      │
-│            (Pure Python)               │
-│  - Working hours interval arithmetic   │
-│  - Deadline urgency & priority scoring │
-│  - Focus block limits & breaks         │
-│  - Explanatory rationale generation    │
-└────────────────────────────────────────┘
-          │ Proposed PlanBlocks + SHA-256 Hash
-          ▼
-┌────────────────────────────────────────┐
-│       Approval Gate & Audit Trail      │
-│  - Review card presented to user       │
-│  - Staged as immutable PendingAction   │
-│  - Applied only on explicit approval   │
-│  - Recorded in append-only audit log   │
-└────────────────────────────────────────┘
+[ IMPLEMENTED ] ──────────────────> [ IN PROGRESS ] ───────────────> [ PLANNED ]
+• Voice & Text Intent Capture       • External Calendar 2-Way Sync   • End-to-End Encrypted Sync
+• Gemini 3.6 Flash Extraction       • Recurrence Rule Engine         • Multi-Agent Collaboration
+• Pure Python Planning Engine       • Mobile Touch Timeline          • Native Wearable Voice Client
+• Integrity-Verified Approval Gate
+• SHA-256 Action Verification
+• What-If Sandboxed Simulations
+• Reflection & Habit Analytics
+• Dual-Mode Auth & CSRF Security
 ```
+
+### Verified as Implemented
+- [x] Spoken voice dictation (`VoiceOrb`) and text `Omnibar` input.
+- [x] Google GenAI SDK integration with Gemini 3.6 Flash and Pydantic schema validation.
+- [x] Deterministic heuristic regex/NLP fallback parser when AI is unconfigured or unreachable.
+- [x] Pure Python interval planning engine with focus block limits, breaks, and buffers.
+- [x] Three profile lenses: Student, Professional, and Personal.
+- [x] Staged `PendingAction` workflow with SHA-256 payload integrity validation.
+- [x] Interactive `ApprovalCard` UI with explicit user confirmation and rejection paths.
+- [x] Action execution engine transitioning plan and task statuses upon approval.
+- [x] Append-only audit logging across all state transitions.
+- [x] Sandboxed What-If schedule simulation with automatic 24-hour draft cleanup.
+- [x] Daily Reflection journaling (Accomplishments, Friction, Next Intent) and weekly review synthesis.
+- [x] Dual-mode authentication (Bearer JWT & HttpOnly cookies) with double-submit CSRF protection.
+- [x] Multi-worker Redis token revocation and rate limiting with local in-memory fallback.
+- [x] Relational database persistence with full linear Alembic migrations.
+
+### In Progress
+- [ ] Bi-directional calendar synchronization with external providers (Google Calendar, Outlook, CalDAV).
+- [ ] Automated recurring rule engine (RRULE support for repeating tasks and fixed events).
+- [ ] Touch-optimized timeline block drag-and-drop and pinch-to-zoom for mobile browsers.
+
+### Planned
+- [ ] End-to-end encrypted device-to-device local synchronization.
+- [ ] Collaborative multi-agent delegation for shared team commitments.
+- [ ] Native wearable and ambient voice-first interaction clients.
 
 ---
 
-## Verified Technology Stack
-
-### Frontend
-- **React 19**: Modern component architecture utilizing hooks and functional patterns.
-- **TypeScript**: End-to-end static typing across pages, components, and data structures.
-- **Vite 6**: Next-generation frontend tooling and local development server.
-- **Tailwind CSS v4**: Utility-first styling with custom theme definitions for light and dark modes.
-- **React Router v7**: Client-side routing with navigation guards and layout hierarchies.
-- **Zustand v5**: Lightweight client state management for authentication, workspace preferences, and voice recording.
-- **Axios**: HTTP client configured with request/response interceptors for silent token refresh and CSRF token propagation.
-- **Framer Motion & Lucide React**: Declarative UI transitions, micro-interactions, and interface iconography.
-- **date-fns**: Time and calendar interval manipulation utilities.
-
-### Backend
-- **Python 3.10+**: Core backend runtime.
-- **FastAPI**: Asynchronous, high-performance web framework for REST APIs and OpenAPI documentation.
-- **Pydantic v2**: Strict schema validation, settings management (`pydantic-settings`), and serialization.
-- **SQLAlchemy 2.0**: Asynchronous ORM utilizing `AsyncSession` with connection pooling.
-- **Alembic**: Database migration environment maintaining linear version scripts across releases.
-- **Database Engine Support**:
-  - **SQLite** (via `aiosqlite`): Zero-setup asynchronous database for local development.
-  - **PostgreSQL**: Uses `asyncpg` for asynchronous application database operations and `psycopg2-binary` for synchronous Alembic migrations.
-- **Redis Integration** (via `redis.asyncio`): Distributed multi-worker token revocation and atomic Lua-scripted sliding-window rate limiting; includes a thread-safe in-memory store for local single-process development.
-- **Security & Authentication**:
-  - Direct `bcrypt` password hashing.
-  - JSON Web Tokens (JWT) signed via `python-jose`.
-  - Dual-mode authentication: Authorization header Bearer tokens and HttpOnly access/refresh cookies.
-  - Double-submit CSRF cookie verification for state-changing browser requests (`POST`, `PUT`, `PATCH`, `DELETE`).
-
-### AI & Language Processing
-- **Google GenAI SDK (`google-genai`)**: Gemini 3.6 Flash for structured natural-language extraction with Pydantic response schemas.
-- **Rule-Based Heuristic Fallback**: Built-in deterministic regex and NLP parser that automatically activates if the AI service is unconfigured, rate-limited, or unreachable.
-
-### Planning Engine
-- **Pure Python Scheduler**: Self-contained mathematical interval arithmetic and conflict resolution with zero runtime AI dependencies.
-- **SHA-256 Action Hashing**: Canonical hashing of planned block parameters to prevent tampering between review and execution.
-
----
-
-## Repository Structure
-
-```
-dayfold/
-├── .env.example              # Environment variables overview
-├── .gitignore                # Git exclusion rules
-├── README.md                 # Project documentation
-├── render.yaml               # Backend infrastructure definition
-├── backend/
-│   ├── alembic/              # Database migration scripts
-│   ├── app/
-│   │   ├── api/routes/       # REST routes (auth, tasks, planning, reflections, etc.)
-│   │   ├── core/             # Security, tokens, CSRF, distributed store, config
-│   │   ├── db/               # Database engine and session lifecycle
-│   │   ├── models/           # SQLAlchemy ORM declarative models (16 tables)
-│   │   ├── schemas/          # Pydantic request and response schemas
-│   │   └── services/
-│   │       ├── planner/      # Deterministic planning engine
-│   │       ├── agent/        # Gemini extractor and heuristic fallback
-│   │       ├── auth/         # Hashing and authentication services
-│   │       └── reflection/   # Journaling and pattern analysis services
-│   ├── requirements.txt      # Python dependencies
-│   ├── alembic.ini           # Alembic migration configuration
-│   └── run.py                # Local server runner
-└── frontend/
-    ├── public/               # Favicon and static SVGs
-    ├── src/
-    │   ├── assets/           # Application graphics
-    │   ├── components/       # Interface components (VoiceOrb, Timeline, ApprovalCard)
-    │   │   └── reflection/   # Journaling, weekly review, and pattern discovery components
-    │   ├── hooks/            # Custom React hooks (voice recording, theme)
-    │   ├── lib/              # Axios API client with cookie and CSRF handling
-    │   ├── pages/            # Page components (MyDay, WhatIf, Tasks, Journal, Settings)
-    │   └── store/            # State stores (auth, workspace, voice)
-    ├── package.json          # Node dependencies
-    ├── pnpm-lock.yaml        # Pnpm lockfile
-    ├── vercel.json           # Frontend build and routing specification
-    └── vite.config.ts        # Vite configuration
-```
-
----
-
-## Local Setup
+## Getting Started
 
 ### Prerequisites
-- Python 3.10 or higher
-- Node.js 18 or higher with `pnpm`
-- (Optional) A Google Gemini API key from [Google AI Studio](https://aistudio.google.com/) for natural-language extraction. If omitted, the deterministic rule-based fallback parser will operate automatically.
+- **Python**: 3.10 or higher
+- **Node.js**: 18.0 or higher with **pnpm** installed
+- **API Key (Optional)**: A Google Gemini API key from [Google AI Studio](https://aistudio.google.com/). If omitted, Dayfold runs using its built-in deterministic fallback parser.
 
 ### 1. Backend Setup
 
 ```bash
+# Navigate to the backend directory
 cd backend
 
-# Create and activate a virtual environment
+# Create and activate a Python virtual environment
 python -m venv venv
-# Windows:
-.\venv\Scripts\activate
-# macOS/Linux:
+
+# Windows (PowerShell):
+.\venv\Scripts\Activate.ps1
+# macOS / Linux:
 source venv/bin/activate
 
-# Install dependencies
+# Install backend dependencies
 pip install -r requirements.txt
 
-# Configure environment
+# Create your local environment file
 cp .env.example .env
-# Open .env to set your GEMINI_API_KEY (optional) and SECRET_KEY
 
-# Apply database migrations
+# Run database migrations to initialize tables
 alembic upgrade head
 
-# Start the development server
+# Start the local development server
 python run.py
 ```
-*The FastAPI server will start at `http://127.0.0.1:8000`. Interactive documentation is available at `http://127.0.0.1:8000/docs`.*
+
+*The backend server will start at `http://127.0.0.1:8000`.*
+*Interactive API documentation is available at `http://127.0.0.1:8000/docs`.*
 
 ### 2. Frontend Setup
 
 ```bash
+# Open a new terminal and navigate to the frontend directory
 cd frontend
 
-# Install dependencies
+# Install frontend dependencies using pnpm
 pnpm install
 
 # Start the Vite development server
 pnpm dev
 ```
-*The frontend application will be accessible at `http://localhost:5173`. In development, API requests are automatically forwarded to `http://127.0.0.1:8000` via the Vite reverse proxy.*
+
+*The frontend application will start at `http://localhost:5173`.*
+*In development mode, API requests are automatically reverse-proxied to `http://127.0.0.1:8000`.*
+
+---
+
+## Project Structure
+
+```
+dayfold/
+├── docs/
+│   ├── diagrams/             # Architecture and workflow diagrams
+│   │   ├── dayfold-architecture.svg
+│   │   ├── dayfold-product-flow.mmd    # Editable Mermaid workflow source
+│   │   └── dayfold-product-flow.png    # High-resolution product flowchart
+│   └── images/               # Product showcase screenshots
+│       ├── dayfold-landing.png
+│       ├── dayfold-dashboard.png
+│       └── dayfold-deliverables.png
+├── backend/
+│   ├── alembic/              # Database migration scripts
+│   ├── app/
+│   │   ├── api/routes/       # REST endpoints (auth, actions, planning, tasks, etc.)
+│   │   ├── core/             # Security, JWT, CSRF, Redis store, configuration
+│   │   ├── db/               # SQLAlchemy engine, session lifecycle, base model
+│   │   ├── models/           # Declarative database models
+│   │   ├── schemas/          # Pydantic request and response schemas
+│   │   └── services/
+│   │       ├── agent/        # Gemini extractor and rule-based heuristic parser
+│   │       ├── planner/      # Pure Python deterministic scheduling engine
+│   │       ├── auth/         # Password hashing and token services
+│   │       └── reflection/   # Journaling analysis and weekly pattern discovery
+│   ├── requirements.txt      # Python dependencies
+│   ├── alembic.ini           # Migration environment configuration
+│   └── run.py                # Local server runner
+└── frontend/
+    ├── src/
+    │   ├── components/       # Interface components (VoiceOrb, Timeline, ApprovalCard)
+    │   │   └── reflection/   # Journaling and weekly review widgets
+    │   ├── hooks/            # Custom React hooks (voice recording, theme)
+    │   ├── lib/              # Axios API client with token and CSRF handling
+    │   ├── pages/            # Page views (MyDay, WhatIf, Tasks, Journal, Settings)
+    │   └── store/            # Zustand state stores (auth, workspace, voice)
+    ├── package.json          # Node dependencies
+    ├── pnpm-lock.yaml        # Pnpm lockfile
+    ├── vite.config.ts        # Vite configuration and development proxy
+    └── vercel.json           # Production frontend deployment specification
+```
 
 ---
 
 ## Design System
 
 Dayfold follows a deliberate editorial design identity called **The Unfolding Day**:
-- **Palette**: Warm Paper Light (`#FBF9F5`) and Deep Ink Dark (`#0B0D12`), accented with Ember (`#F26A3D`) and Tide (`#1B7F83`).
-- **Typography**: Instrument Serif for editorial headers, Geist Sans for interface elements, and Geist Mono for timestamps, durations, and SHA-256 hashes.
-- **Design Tokens**: The design system components and tokens can be explored interactively at `/design` within the running application.
+
+- **Palette**: Warm Paper Light (`#FBF9F5`) and Deep Ink Dark (`#0B0D12`), accented with Ember (`#F26A3D`) for intent/decisions and Tide (`#1B7F83`) for execution/approvals.
+- **Typography**: Instrument Serif for editorial headers, Geist Sans for interface components, and Geist Mono for timestamps, durations, and cryptographic hash tags.
+- **Interactive Component Catalog**: Explore the design tokens, color ramps, and UI primitives live at `/design` within the running application.
+
+---
+
+## Future Development
+
+Dayfold's long-term roadmap focuses on deepening trust, cross-platform ubiquity, and context awareness:
+
+- **Unified Calendar Protocols**: Native CalDAV, Google Calendar, and Microsoft Graph bi-directional event synchronization.
+- **Local-First Synchronization**: Cryptographically signed CRDT-based event replication between personal devices without cloud dependence.
+- **Ambient Voice Surface**: Wearable and smart-speaker voice interfaces capable of streaming quick voice updates without opening a browser.
+- **Context-Aware Energy Calibration**: Learning historical completion times to dynamically recalibrate estimated focus block durations.
+
+---
+
+## The Unfolding Day
+
+> **Talk naturally. Plan intelligently. Unfold your day.**
+
+Dayfold is built on the belief that everyday productivity should feel calm, transparent, and respectful of human agency. By combining the conversational ease of generative AI with the reliability of deterministic scheduling and explicit user approval, Dayfold transforms overwhelming responsibilities into a structured day that works for you.
