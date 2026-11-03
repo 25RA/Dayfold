@@ -122,21 +122,19 @@ The diagram below outlines the seven-stage journey from unstructured human thoug
 
 ## Technology Stack
 
+
 | Layer | Technologies | Purpose in Dayfold |
-| :--- | :--- | :--- |
-| **Frontend UI** | **React 19** &bull; **TypeScript** | Declarative component architecture with strict end-to-end type safety. |
-| **Build & Tooling** | **Vite 6** &bull; **Tailwind CSS v4** | Instant HMR development server with custom editorial design tokens. |
-| **State & Routing** | **Zustand v5** &bull; **React Router v7** | Lightweight client state for auth, workspace, and voice; client-side navigation. |
-| **Client Network** | **Axios** | Interceptor pipeline managing token refresh and CSRF token propagation. |
-| **Backend Runtime** | **Python 3.10+** &bull; **FastAPI** | Asynchronous web framework for REST APIs and automatic OpenAPI documentation. |
-| **Data Validation** | **Pydantic v2** &bull; `pydantic-settings` | Strict request/response modeling and environment configuration. |
-| **Persistence & ORM** | **SQLAlchemy 2.0** (`AsyncSession`) | Asynchronous database access with connection pooling for users, tasks, plans, and audit logs. |
-| **Migrations** | **Alembic** | Version-controlled, linear schema migration scripts. |
-| **Database Engines** | **SQLite** (`aiosqlite`) &bull; **PostgreSQL** | Zero-setup asynchronous SQLite for local development; `asyncpg` runtime and `psycopg2-binary` migrations for PostgreSQL. |
-| **Distributed Store** | **Redis** (`redis.asyncio`) | Multi-worker sliding-window rate limiting (Lua scripts) and token revocation, with thread-safe in-memory fallback. |
-| **AI Integration** | **Google GenAI SDK** (`google-genai`) | Gemini 3.6 Flash structured entity extraction with schema validation. |
-| **Rule-Based Engine** | **Custom Python NLP / Regex** | Local heuristic fallback parser when the Gemini API is unconfigured or unreachable. |
-| **Security & Cryptography** | `bcrypt` &bull; `python-jose` &bull; SHA-256 | Direct password hashing, signed JWT tokens, and action payload integrity checks. |
+|---|---|---|
+| **Frontend** | **React 19** · **TypeScript** | Component-based interface and typed frontend application logic. |
+| **UI & Tooling** | **Vite 6** · **Tailwind CSS v4** | Development server, production builds, and responsive styling. |
+| **State & Networking** | **Zustand** · **React Router** · **Axios** | Client state management, navigation, and API communication. |
+| **Backend** | **Python 3.10+** · **FastAPI** | Asynchronous REST APIs and application services. |
+| **Validation & ORM** | **Pydantic v2** · **SQLAlchemy 2.0** | Request validation, configuration, and asynchronous database access. |
+| **Database & Migrations** | **SQLite** · **PostgreSQL** · **Alembic** | Local development, PostgreSQL support, and version-controlled schema migrations. |
+| **Distributed Infrastructure** | **Redis** | Multi-worker rate limiting and token revocation, with an in-memory fallback. |
+| **AI Integration** | **Google GenAI SDK (Gemini)** | Structured natural-language extraction with schema validation. |
+| **Fallback NLP** | **Custom Python NLP / Regex** | Rule-based parsing when the Gemini API is unavailable. |
+| **Security** | **bcrypt** · **python-jose** · **SHA-256** | Password hashing, JWT authentication, and action payload integrity verification. |
 
 ---
 
@@ -185,7 +183,7 @@ What-If planning operates by creating draft plans flagged with `is_simulation = 
 • Dual-Mode Auth & CSRF Security
 ```
 
-### Verified as Implemented
+### Implemented & Verified
 - [x] Spoken voice dictation (`VoiceOrb`) and text `Omnibar` input.
 - [x] Google GenAI SDK integration with Gemini 3.6 Flash and Pydantic schema validation.
 - [x] Deterministic heuristic regex/NLP fallback parser when AI is unconfigured or unreachable.
@@ -310,16 +308,6 @@ dayfold/
     ├── vite.config.ts        # Vite configuration and development proxy
     └── vercel.json           # Production frontend deployment specification
 ```
-
----
-
-## Design System
-
-Dayfold follows a deliberate editorial design identity called **The Unfolding Day**:
-
-- **Palette**: Warm Paper Light (`#FBF9F5`) and Deep Ink Dark (`#0B0D12`), accented with Ember (`#F26A3D`) for intent/decisions and Tide (`#1B7F83`) for execution/approvals.
-- **Typography**: Instrument Serif for editorial headers, Geist Sans for interface components, and Geist Mono for timestamps, durations, and cryptographic hash tags.
-- **Interactive Component Catalog**: Explore the design tokens, color ramps, and UI primitives live at `/design` within the running application.
 
 ---
 
