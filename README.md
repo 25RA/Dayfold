@@ -1,8 +1,12 @@
+-<div align="center">
+
 # Dayfold
 
-## An AI Chief of Staff for Everyday Decisions.
+### An AI Chief of Staff for Everyday Decisions.
 
 *The Unfolding Day*
+
+</div>
 
 > **Talk naturally. Plan intelligently. Unfold your day.**
 
