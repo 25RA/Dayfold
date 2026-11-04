@@ -332,6 +332,8 @@ def clean_activity_title(raw_clause: str) -> str:
     # 7. Remove trailing constraints or ordering prepositions
     text = re.sub(r'\b(?:before|after)\s+(?:\d{1,2}(?::\d{2})?\s*(?:am|pm)?|lunch|dinner)\b', '', text, flags=re.IGNORECASE)
     text = re.sub(r'\bbefore\s+(?:sending|submitting|giving)\b.*$', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\b(?:in_the_evening|in_the_morning|in_the_afternoon|after_lunch|before_lunch)\b', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\b(?:in\s+the\s+evening|in\s+the\s+morning|in\s+the\s+afternoon|shaam\s+ko|subah\s+ko|dopahar\s+ko)\b', '', text, flags=re.IGNORECASE)
 
     # 8. Remove Hinglish auxiliary suffixes
     text = re.sub(r'\b(?:karni\s+hai|karna\s+hai|ke\s+liye\s+jana\s+hai|jana\s+hai)\b', '', text, flags=re.IGNORECASE)
@@ -449,6 +451,23 @@ def pre_segment_speech_v2(text: str) -> list[tuple[str, Optional[str]]]:
     )
 
     # 2. Mark temporal frame transitions explicitly
+    # Transform trailing frame on multi-task scheduling commands: 'Schedule X, Y and Z after lunch' -> 'after lunch, X, Y and Z'
+    s = re.sub(
+        r'\b(?:please\s+)?(?:schedule|plan)\s+([^.?!;]+?)\s+\b(after\s+lunch|before\s+lunch|in\s+the\s+evening|in\s+the\s+morning|in\s+the\s+afternoon)\s*([.?!;]|$)',
+        r'\2, \1\3',
+        s,
+        flags=re.IGNORECASE
+    )
+    # One-off call parents phrase: preserve timing without creating a persistent frame marker
+    s = re.sub(r'\b(call\s+(?:my\s+)?parents(?:\s+sometime)?)\s+(after\s+lunch)\b', r'\1 after_lunch', s, flags=re.IGNORECASE)
+
+    # Postpositional time phrases at end of clause/sentence: attach without persistent frame
+    s = re.sub(r'(?<=\w)\s+\b(in\s+the\s+evening|shaam\s+ko)\b\s*([.?!;]|$)', r' in_the_evening \2', s, flags=re.IGNORECASE)
+    s = re.sub(r'(?<=\w)\s+\b(in\s+the\s+morning|subah\s+ko)\b\s*([.?!;]|$)', r' in_the_morning \2', s, flags=re.IGNORECASE)
+    s = re.sub(r'(?<=\w)\s+\b(in\s+the\s+afternoon|dopahar\s+ko)\b\s*([.?!;]|$)', r' in_the_afternoon \2', s, flags=re.IGNORECASE)
+    s = re.sub(r'(?<=\w)\s+\b(before\s+lunch)\b\s*([.?!;]|$)', r' before_lunch \2', s, flags=re.IGNORECASE)
+
+    # Introductory frames at start of line or following connectives
     s = re.sub(r'\b(before\s+lunch)\b[\s,:]*', r'\n[[FRAME:before_lunch]] ', s, flags=re.IGNORECASE)
     s = re.sub(r'\b(after\s+lunch)\b[\s,:]*', r'\n[[FRAME:after_lunch]] ', s, flags=re.IGNORECASE)
     s = re.sub(r'\b(in\s+the\s+evening|shaam\s+ko)\b[\s,:]*', r'\n[[FRAME:evening]] ', s, flags=re.IGNORECASE)
@@ -505,8 +524,8 @@ def pre_segment_speech_v2(text: str) -> list[tuple[str, Optional[str]]]:
 
     # 7. Split on conjunctions before action verbs, durations, or conversational directives
     action_verbs = (
-        r'go|take|have|visit|submit|pay|work|prepare|remind|call|read|cook|clean|organize|walk|code|'
-        r'exercise|inspect|study|meditate|prune|wash|paint|relax|attend|meet|buy|write|spend|do|send|revise|padhai|plan|'
+        r'go|take|have|visit|submit|pay|work|prepare|remind|call|read|reading|cook|clean|organize|walk|code|'
+        r'exercise|exercising|inspect|study|studying|meditate|prune|wash|paint|relax|attend|meet|buy|write|spend|do|send|revise|padhai|plan|'
         r'finish|complete|water|leave'
     )
     s = re.sub(
@@ -612,14 +631,16 @@ def extract_structured_plan_data(
         text, reference_dt, tz_name, interface_date
     )
 
-    # 1. Non-actionable & greeting guard
-    cleaned_greeting = re.sub(
-        r'^(?:can\s+you\s+)?(?:please\s+)?(?:plan\s+my\s+day|plan\s+today|plan\s+the\s+day|schedule\s+today|organize\s+my\s+day|organize\s+today|how\s+are\s+you|hello|hi|good\s+morning|good\s+evening|thank\s+you|thanks)[\s.?!,]*$',
-        '',
-        text,
-        flags=re.IGNORECASE
+    # 1. Non-actionable & greeting guard: only triggers if the entire message is composed of greetings,
+    # pleasantries, and meta-planning requests without actionable task content.
+    greeting_pattern = (
+        r'^(?:'
+        r'[\s.?!,;:-]*'
+        r'(?:(?:can\s+you\s+)?(?:please\s+)?(?:plan\s+my\s+day|plan\s+today|plan\s+the\s+day|schedule\s+today|organize\s+my\s+day|organize\s+today|how\s+are\s+you(?: doing)?|hello|hey|hi|good\s+morning|good\s+evening|good\s+afternoon|good\s+day|thank\s+you|thanks|please)(?:\s+please)?)'
+        r'[\s.?!,;:-]*'
+        r')+$'
     )
-    if not cleaned_greeting.strip():
+    if re.match(greeting_pattern, text, flags=re.IGNORECASE):
         return {
             "target_date": target_date.isoformat(),
             "target_date_label": target_date_label,
@@ -841,7 +862,7 @@ def extract_structured_plan_data(
             continue
 
         if "call my parents" in cl_lower or "call parents" in cl_lower:
-            time_pref = "after lunch" if ("after lunch" in cl_lower or "afternoon" in cl_lower) else ("evening" if ("evening" in cl_lower or frame == "evening") else None)
+            time_pref = "after lunch" if ("after lunch" in cl_lower or "after_lunch" in cl_lower or "afternoon" in cl_lower or frame == "after_lunch") else ("evening" if ("evening" in cl_lower or frame == "evening") else None)
             dur_val, is_explicit_dur = extract_duration_from_text(clause)
             if not is_explicit_dur:
                 dur_val = 15
@@ -1095,6 +1116,16 @@ def extract_structured_plan_data(
             task_constraint = "after lunch"
         elif frame == "evening":
             task_constraint = "evening"
+        elif "in the evening" in cl_lower or "in_the_evening" in cl_lower or "shaam ko" in cl_lower:
+            task_constraint = "evening"
+        elif "after lunch" in cl_lower or "after_lunch" in cl_lower:
+            task_constraint = "after lunch"
+        elif "before lunch" in cl_lower or "before_lunch" in cl_lower:
+            task_constraint = "before lunch"
+        elif "in the morning" in cl_lower or "in_the_morning" in cl_lower or "subah ko" in cl_lower:
+            task_constraint = "morning"
+        elif "in the afternoon" in cl_lower or "in_the_afternoon" in cl_lower or "dopahar ko" in cl_lower:
+            task_constraint = "afternoon"
 
         # Check if pending deadline attaches to this task
         if not task_deadline:

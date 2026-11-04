@@ -20,7 +20,10 @@ from app.core.deps import get_current_user, security
 from app.core.rate_limit import rate_limit_by_ip
 from app.core.distributed_store import distributed_store
 import hashlib
+import logging
 import secrets
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -51,22 +54,31 @@ class AuthResponse(BaseModel):
     user: dict
 
 
+def _get_cookie_security_settings() -> tuple[bool, str]:
+    """Derive Secure and SameSite cookie attributes from the explicit production environment."""
+    is_production = settings.ENVIRONMENT.lower() == "production"
+    is_secure = is_production
+    samesite = "none" if is_production else "lax"
+    return is_secure, samesite
+
+
 def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
     """Helper to attach secure SameSite cookies and CSRF token."""
+    is_secure, samesite = _get_cookie_security_settings()
     response.set_cookie(
         key="dayfold_access_token",
         value=access_token,
         httponly=True,
-        secure=not settings.DEBUG,
-        samesite="lax",
+        secure=is_secure,
+        samesite=samesite,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
     response.set_cookie(
         key="dayfold_refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=not settings.DEBUG,
-        samesite="lax",
+        secure=is_secure,
+        samesite=samesite,
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
         path="/api/v1/auth",
     )
@@ -75,10 +87,18 @@ def _set_auth_cookies(response: Response, access_token: str, refresh_token: str)
         key="dayfold_csrf_token",
         value=csrf_token,
         httponly=False,
-        secure=not settings.DEBUG,
-        samesite="lax",
+        secure=is_secure,
+        samesite=samesite,
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
     )
+
+
+def _clear_auth_cookies(response: Response) -> None:
+    """Helper to clear auth cookies consistently with the environment cookie policy."""
+    is_secure, samesite = _get_cookie_security_settings()
+    response.delete_cookie("dayfold_access_token", secure=is_secure, samesite=samesite)
+    response.delete_cookie("dayfold_refresh_token", path="/api/v1/auth", secure=is_secure, samesite=samesite)
+    response.delete_cookie("dayfold_csrf_token", secure=is_secure, samesite=samesite)
 
 
 @router.post("/register", response_model=AuthResponse, dependencies=[Depends(rate_limit_by_ip(max_requests=10, window_seconds=60, scope="register"))])
@@ -146,16 +166,23 @@ async def refresh_access_token(
     raw_token = (body.refresh_token if body and body.refresh_token else "") or request.cookies.get("dayfold_refresh_token", "")
     raw_token = raw_token.strip()
     if not raw_token:
+        logger.warning(
+            "Auth refresh rejected: missing_refresh_token (has_body=%s, has_cookie=%s)",
+            bool(body and body.refresh_token),
+            "dayfold_refresh_token" in request.cookies,
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token required")
 
     session = await get_session_by_token(db, raw_token)
     if not session:
+        logger.warning("Auth refresh rejected: session_not_found")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
 
     now = datetime.now(timezone.utc)
 
     # Reuse detection: if a revoked refresh token is re-submitted
     if session.revoked_at is not None:
+        logger.warning("Auth refresh rejected: revoked_token_reuse (user_id=%s)", session.user_id)
         await revoke_all_user_sessions(db, session.user_id)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -167,16 +194,20 @@ async def refresh_access_token(
         exp = exp.replace(tzinfo=timezone.utc)
     if exp < now:
         session.revoked_at = now
+        logger.warning("Auth refresh rejected: session_expired (user_id=%s)", session.user_id)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Expired refresh token")
 
     user = await get_user_by_id(db, session.user_id)
     if not user or user.status != "active":
+        logger.warning("Auth refresh rejected: user_inactive_or_not_found (user_id=%s)", session.user_id)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User account is inactive or not found")
 
     # Rotate refresh token: revoke current session, issue a fresh session
     session.revoked_at = now
     new_raw_refresh, _ = await create_user_session(db, user.id)
     new_access_token = create_access_token(user.id, user.email)
+
+    logger.info("Auth refresh successful (user_id=%s)", user.id)
 
     await write_audit(db, user.id, "user", "token.refresh", "user", user.id)
 
@@ -233,9 +264,7 @@ async def logout(
         await revoke_all_user_sessions(db, current_user.id)
 
     # Clear auth cookies
-    response.delete_cookie("dayfold_access_token")
-    response.delete_cookie("dayfold_refresh_token", path="/api/v1/auth")
-    response.delete_cookie("dayfold_csrf_token")
+    _clear_auth_cookies(response)
 
     await write_audit(db, current_user.id, "user", "logout", "user", current_user.id)
     return {"message": "Logged out"}

@@ -19,6 +19,24 @@ function getCsrfToken(): string | null {
 }
 
 api.interceptors.request.use((config) => {
+  // Attach Bearer token if present in localStorage (critical for cross-origin SPA requests)
+  if (typeof localStorage !== 'undefined') {
+    const token = localStorage.getItem('dayfold_access_token');
+    if (token && config.headers) {
+      const hasAuth =
+        typeof config.headers.get === 'function'
+          ? !!config.headers.get('Authorization')
+          : !!config.headers['Authorization'];
+      if (!hasAuth) {
+        if (typeof config.headers.set === 'function') {
+          config.headers.set('Authorization', `Bearer ${token}`);
+        } else {
+          config.headers['Authorization'] = `Bearer ${token}`;
+        }
+      }
+    }
+  }
+
   // Attach CSRF protection header on state-changing requests
   const method = config.method?.toUpperCase();
   if (method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
@@ -30,15 +48,38 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-let isRefreshing = false;
-let failedQueue: Array<{ resolve: (value?: any) => void; reject: (reason?: any) => void }> = [];
+function clearStoredAuthAndRedirect(): void {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem('dayfold_user');
+    localStorage.removeItem('dayfold_access_token');
+    localStorage.removeItem('dayfold_refresh_token');
+  }
+  if (
+    typeof window !== 'undefined' &&
+    window.location.pathname !== '/login' &&
+    window.location.pathname !== '/signup' &&
+    window.location.pathname !== '/'
+  ) {
+    window.location.href = '/login';
+  }
+}
 
-const processQueue = (error: any = null) => {
+interface QueuedRequest {
+  resolve: (token: string) => void;
+  reject: (reason?: any) => void;
+}
+
+let isRefreshing = false;
+let failedQueue: QueuedRequest[] = [];
+
+const processQueue = (error: any = null, token: string | null = null): void => {
   failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error);
+    } else if (token) {
+      prom.resolve(token);
     } else {
-      prom.resolve();
+      prom.reject(new Error('Session refresh failed: missing access token.'));
     }
   });
   failedQueue = [];
@@ -57,41 +98,91 @@ api.interceptors.response.use(
       requestUrl.includes('/auth/refresh') ||
       requestUrl.includes('/auth/logout');
 
-    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+    if (error.response?.status === 401 && !originalRequest?._retry && !isAuthEndpoint) {
       if (isRefreshing) {
-        return new Promise((resolve, reject) => {
+        return new Promise<string>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
-          .then(() => api(originalRequest))
-          .catch((err) => Promise.reject(err));
+          .then((token) => {
+            if (originalRequest) {
+              originalRequest._retry = true;
+              if (originalRequest.headers) {
+                if (typeof originalRequest.headers.set === 'function') {
+                  originalRequest.headers.set('Authorization', `Bearer ${token}`);
+                } else {
+                  originalRequest.headers['Authorization'] = `Bearer ${token}`;
+                }
+              }
+            }
+            return api(originalRequest);
+          });
       }
 
       originalRequest._retry = true;
       isRefreshing = true;
 
+      const refreshToken =
+        typeof localStorage !== 'undefined'
+          ? localStorage.getItem('dayfold_refresh_token')
+          : null;
+
+      if (!refreshToken || !refreshToken.trim()) {
+        isRefreshing = false;
+        const noTokenError = new Error('No refresh token available');
+        processQueue(noTokenError, null);
+        clearStoredAuthAndRedirect();
+        return Promise.reject(error);
+      }
+
       try {
-        await api.post('/auth/refresh', {});
-        processQueue(null);
+        const refreshRes = await api.post('/auth/refresh', { refresh_token: refreshToken.trim() });
+        const { access_token, refresh_token: newRefreshToken, user } = refreshRes.data || {};
+
+        if (!access_token || typeof access_token !== 'string' || !access_token.trim()) {
+          throw new Error('Refresh response missing valid access token');
+        }
+
+        const validAccessToken = access_token.trim();
+
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('dayfold_access_token', validAccessToken);
+          if (newRefreshToken && typeof newRefreshToken === 'string' && newRefreshToken.trim()) {
+            localStorage.setItem('dayfold_refresh_token', newRefreshToken.trim());
+          }
+          if (user) {
+            localStorage.setItem('dayfold_user', JSON.stringify(user));
+          }
+        }
+
+        // Set isRefreshing to false before resolving the queue
+        isRefreshing = false;
+        processQueue(null, validAccessToken);
+
+        // Update authorization header on the retried initial request
+        if (originalRequest?.headers) {
+          if (typeof originalRequest.headers.set === 'function') {
+            originalRequest.headers.set('Authorization', `Bearer ${validAccessToken}`);
+          } else {
+            originalRequest.headers['Authorization'] = `Bearer ${validAccessToken}`;
+          }
+        }
+
         return api(originalRequest);
       } catch (refreshErr) {
-        processQueue(refreshErr);
-        localStorage.removeItem('dayfold_user');
-        if (
-          typeof window !== 'undefined' &&
-          window.location.pathname !== '/login' &&
-          window.location.pathname !== '/signup' &&
-          window.location.pathname !== '/'
-        ) {
-          window.location.href = '/login';
-        }
-        return Promise.reject(refreshErr);
-      } finally {
+        // Set isRefreshing to false before rejecting the queue
         isRefreshing = false;
+        processQueue(refreshErr, null);
+        clearStoredAuthAndRedirect();
+        return Promise.reject(refreshErr);
       }
     }
 
     if (error.response?.status === 401 && isAuthEndpoint) {
-      localStorage.removeItem('dayfold_user');
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('dayfold_user');
+        localStorage.removeItem('dayfold_access_token');
+        localStorage.removeItem('dayfold_refresh_token');
+      }
     }
 
     return Promise.reject(error);

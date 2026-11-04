@@ -22,18 +22,30 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  user: JSON.parse(localStorage.getItem('dayfold_user') || 'null'),
-  token: null,
+  user: JSON.parse((typeof localStorage !== 'undefined' && localStorage.getItem('dayfold_user')) || 'null'),
+  token: (typeof localStorage !== 'undefined' && localStorage.getItem('dayfold_access_token')) || null,
   isLoading: false,
-  isAuthenticated: !!localStorage.getItem('dayfold_user'),
+  isAuthenticated: !!(typeof localStorage !== 'undefined' && (localStorage.getItem('dayfold_access_token') || localStorage.getItem('dayfold_user'))),
 
   login: async (email, password) => {
     set({ isLoading: true });
     try {
       const res = await api.post('/auth/login', { email, password });
-      const { user } = res.data;
-      localStorage.setItem('dayfold_user', JSON.stringify(user));
-      set({ user, token: null, isAuthenticated: true, isLoading: false });
+      const { user, access_token, refresh_token } = res.data;
+      if (!access_token || typeof access_token !== 'string' || !access_token.trim()) {
+        throw new Error('Authentication response missing valid access token');
+      }
+      const validAccessToken = access_token.trim();
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('dayfold_access_token', validAccessToken);
+        if (refresh_token && typeof refresh_token === 'string' && refresh_token.trim()) {
+          localStorage.setItem('dayfold_refresh_token', refresh_token.trim());
+        }
+        if (user) {
+          localStorage.setItem('dayfold_user', JSON.stringify(user));
+        }
+      }
+      set({ user, token: validAccessToken, isAuthenticated: true, isLoading: false });
     } catch (err) {
       set({ isLoading: false });
       throw err;
@@ -44,9 +56,21 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true });
     try {
       const res = await api.post('/auth/register', { email, password, display_name: displayName });
-      const { user } = res.data;
-      localStorage.setItem('dayfold_user', JSON.stringify(user));
-      set({ user, token: null, isAuthenticated: true, isLoading: false });
+      const { user, access_token, refresh_token } = res.data;
+      if (!access_token || typeof access_token !== 'string' || !access_token.trim()) {
+        throw new Error('Registration response missing valid access token');
+      }
+      const validAccessToken = access_token.trim();
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('dayfold_access_token', validAccessToken);
+        if (refresh_token && typeof refresh_token === 'string' && refresh_token.trim()) {
+          localStorage.setItem('dayfold_refresh_token', refresh_token.trim());
+        }
+        if (user) {
+          localStorage.setItem('dayfold_user', JSON.stringify(user));
+        }
+      }
+      set({ user, token: validAccessToken, isAuthenticated: true, isLoading: false });
     } catch (err) {
       set({ isLoading: false });
       throw err;
@@ -82,9 +106,22 @@ export const useAuthStore = create<AuthState>((set) => ({
         isNew = true;
       }
 
-      const { user } = res.data;
-      localStorage.setItem('dayfold_user', JSON.stringify(user));
-      localStorage.setItem('dayfold_lens', profile);
+      const { user, access_token, refresh_token } = res.data;
+      if (!access_token || typeof access_token !== 'string' || !access_token.trim()) {
+        throw new Error('Demo login response missing valid access token');
+      }
+      const validAccessToken = access_token.trim();
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('dayfold_access_token', validAccessToken);
+        if (refresh_token && typeof refresh_token === 'string' && refresh_token.trim()) {
+          localStorage.setItem('dayfold_refresh_token', refresh_token.trim());
+        }
+        if (user) {
+          localStorage.setItem('dayfold_user', JSON.stringify(user));
+        }
+        localStorage.setItem('dayfold_lens', profile);
+      }
+      set({ user, token: validAccessToken, isAuthenticated: true });
 
       // Immediately activate the matching lens in workspace store
       const { useWorkspaceStore } = await import('./useWorkspaceStore');
@@ -238,7 +275,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         useWorkspaceStore.getState().setLens(profile);
       }
 
-      set({ user, token: null, isAuthenticated: true, isLoading: false });
+      set({ user, token: access_token || null, isAuthenticated: true, isLoading: false });
     } catch (err) {
       set({ isLoading: false });
       throw err;
@@ -246,18 +283,46 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
-    api.post('/auth/logout').catch(() => {});
-    localStorage.removeItem('dayfold_user');
+    const accessToken = typeof localStorage !== 'undefined' ? localStorage.getItem('dayfold_access_token') : null;
+    const refreshToken = typeof localStorage !== 'undefined' ? localStorage.getItem('dayfold_refresh_token') : null;
+
+    const headers: Record<string, string> = {};
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+
+    api.post('/auth/logout', { refresh_token: refreshToken }, { headers }).catch(() => {});
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('dayfold_user');
+      localStorage.removeItem('dayfold_access_token');
+      localStorage.removeItem('dayfold_refresh_token');
+    }
     set({ user: null, token: null, isAuthenticated: false });
   },
 
   checkAuth: async () => {
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('dayfold_access_token') : null;
+    const cachedUser = typeof localStorage !== 'undefined' ? localStorage.getItem('dayfold_user') : null;
+    const refreshToken = typeof localStorage !== 'undefined' ? localStorage.getItem('dayfold_refresh_token') : null;
+
+    if (!token && !cachedUser && !refreshToken) {
+      set({ user: null, token: null, isAuthenticated: false });
+      return;
+    }
     try {
       const res = await api.get('/auth/me');
-      localStorage.setItem('dayfold_user', JSON.stringify(res.data));
-      set({ user: res.data, isAuthenticated: true });
+      const latestToken = (typeof localStorage !== 'undefined' && localStorage.getItem('dayfold_access_token')) || token || null;
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('dayfold_user', JSON.stringify(res.data));
+      }
+      set({ user: res.data, token: latestToken, isAuthenticated: true });
     } catch {
-      localStorage.removeItem('dayfold_user');
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('dayfold_user');
+        localStorage.removeItem('dayfold_access_token');
+        localStorage.removeItem('dayfold_refresh_token');
+      }
       set({ user: null, token: null, isAuthenticated: false });
     }
   },
