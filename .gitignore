@@ -91,9 +91,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# ─── Tests & Test Suites ────────────────────────────────────────────────────
 # Exclude test suites, acceptance tests, regression tests, and test runners
-backend/tests/
+backend/tests/*
+!backend/tests/test_timezone_aware_input_regression.py
 backend/test_live_features.py
 
 # ─── Test, Scratch & Temporary Audit Files ───────────────────────────────────

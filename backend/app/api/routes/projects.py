@@ -2,13 +2,14 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db.session import get_db
 from app.models.models import Project, User
 from app.core.deps import get_current_user
+from app.core.datetime_utils import validate_timezone_aware
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -20,6 +21,11 @@ class ProjectCreate(BaseModel):
     color: str = "#5B63F0"
     target_date: Optional[datetime] = None
 
+    @field_validator("target_date")
+    @classmethod
+    def validate_target_date(cls, v: Optional[datetime]) -> Optional[datetime]:
+        return validate_timezone_aware(v)
+
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
@@ -28,6 +34,11 @@ class ProjectUpdate(BaseModel):
     color: Optional[str] = None
     target_date: Optional[datetime] = None
     status: Optional[str] = None
+
+    @field_validator("target_date")
+    @classmethod
+    def validate_target_date(cls, v: Optional[datetime]) -> Optional[datetime]:
+        return validate_timezone_aware(v)
 
 
 def project_to_dict(p: Project) -> dict:

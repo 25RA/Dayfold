@@ -88,7 +88,7 @@ async def save_or_update_reflection(
     Ensures exactly one active reflection per calendar day per user (upsert behavior).
     """
     existing = await get_reflection_by_date(db, user_id, payload.target_date)
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(timezone.utc)
 
     if existing:
         existing.went_well = payload.went_well
@@ -147,7 +147,7 @@ async def update_reflection_by_id(
     if not reflection:
         return None
 
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(timezone.utc)
     if payload.went_well is not None:
         reflection.went_well = payload.went_well
     if payload.remained_unfinished is not None:
@@ -184,7 +184,7 @@ async def soft_delete_reflection(
     if not reflection:
         return False
 
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(timezone.utc)
     reflection.deleted_at = now
     await db.flush()
 

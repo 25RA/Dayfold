@@ -1,6 +1,6 @@
 from __future__ import annotations
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, Any
 from sqlalchemy import (
@@ -19,7 +19,7 @@ def gen_uuid() -> str:
 
 
 def now_utc() -> datetime:
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
 
 
 # ─── Enums ────────────────────────────────────────────────────────────────────
@@ -90,9 +90,9 @@ class User(Base):
     locale: Mapped[str] = mapped_column(String(16), default="en")
     status: Mapped[str] = mapped_column(String(32), default="active")
     is_onboarded: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
-    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     preferences: Mapped[Optional["UserPreferences"]] = relationship(back_populates="user", uselist=False)
     tasks: Mapped[list["Task"]] = relationship(back_populates="user")
@@ -113,8 +113,8 @@ class UserPreferences(Base):
     break_minutes: Mapped[int] = mapped_column(Integer, default=15)
     meeting_buffer_minutes: Mapped[int] = mapped_column(Integer, default=10)
     deep_work_preference: Mapped[str] = mapped_column(String(16), default="morning")  # morning | evening
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
 
     user: Mapped["User"] = relationship(back_populates="preferences")
 
@@ -125,9 +125,9 @@ class Session(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     refresh_token_hash: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
 
 # ─── Projects & Tasks ─────────────────────────────────────────────────────────
@@ -142,9 +142,9 @@ class Project(Base):
     category: Mapped[Optional[str]] = mapped_column(String(64))
     color: Mapped[str] = mapped_column(String(16), default="#5B63F0")
     status: Mapped[str] = mapped_column(String(32), default="active")
-    target_date: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
+    target_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
 
     user: Mapped["User"] = relationship(back_populates="projects")
     tasks: Mapped[list["Task"]] = relationship(back_populates="project")
@@ -159,16 +159,16 @@ class Task(Base):
     title: Mapped[str] = mapped_column(String(512), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text)
     priority: Mapped[int] = mapped_column(SmallInteger, default=3)  # 1=critical, 4=low
-    deadline_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
+    deadline_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     deadline_is_hard: Mapped[bool] = mapped_column(Boolean, default=False)
     estimate_minutes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     estimate_source: Mapped[str] = mapped_column(String(16), default="user")  # user|model|default
     status: Mapped[str] = mapped_column(String(32), default="todo", index=True)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     source: Mapped[str] = mapped_column(String(32), default="ui")  # voice|ui|meeting|import
     sort_key: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
 
     user: Mapped["User"] = relationship(back_populates="tasks")
     project: Mapped[Optional["Project"]] = relationship(back_populates="tasks")
@@ -188,7 +188,7 @@ class TaskEvent(Base):
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     actor: Mapped[str] = mapped_column(String(16), default="user")  # user|agent|system
     change: Mapped[dict] = mapped_column(JSON, default=dict)
-    at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
     conversation_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
 
     task: Mapped["Task"] = relationship(back_populates="task_events")
@@ -203,8 +203,8 @@ class CalendarEvent(Base):
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(512), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text)
-    starts_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    ends_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     all_day: Mapped[bool] = mapped_column(Boolean, default=False)
     timezone: Mapped[str] = mapped_column(String(64), default="UTC")
     is_busy: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -212,8 +212,8 @@ class CalendarEvent(Base):
     source: Mapped[str] = mapped_column(String(32), default="manual")  # manual|google|app_created
     external_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     linked_task_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("tasks.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, onupdate=now_utc)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
 
     __table_args__ = (
         Index("ix_calendar_events_user_range", "user_id", "starts_at", "ends_at"),
@@ -228,8 +228,8 @@ class Plan(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     conversation_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
-    horizon_start: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    horizon_end: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    horizon_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    horizon_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     version: Mapped[int] = mapped_column(Integer, default=1)
     parent_plan_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="draft")
@@ -237,7 +237,7 @@ class Plan(Base):
     inputs: Mapped[dict] = mapped_column(JSON, default=dict)
     metrics: Mapped[dict] = mapped_column(JSON, default=dict)  # {capacity_minutes, scheduled_minutes}
     is_simulation: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     user: Mapped["User"] = relationship(back_populates="plans")
     blocks: Mapped[list["PlanBlock"]] = relationship(back_populates="plan", cascade="all, delete-orphan")
@@ -254,8 +254,8 @@ class PlanBlock(Base):
     calendar_event_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("calendar_events.id"), nullable=True)
     kind: Mapped[str] = mapped_column(String(32), nullable=False)  # task|break|buffer|fixed_event|prep
     title: Mapped[Optional[str]] = mapped_column(String(512))
-    starts_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    ends_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     rationale: Mapped[list] = mapped_column(JSON, default=list)
     pinned: Mapped[bool] = mapped_column(Boolean, default=False)
     color: Mapped[Optional[str]] = mapped_column(String(16))
@@ -290,9 +290,9 @@ class PendingAction(Base):
     status: Mapped[str] = mapped_column(String(32), default="proposed", index=True)
     title: Mapped[Optional[str]] = mapped_column(String(512))
     description: Mapped[Optional[str]] = mapped_column(Text)
-    proposed_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
-    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    proposed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     decided_via: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)  # tap|voice
 
     user: Mapped["User"] = relationship(back_populates="pending_actions")
@@ -312,8 +312,8 @@ class ActionExecution(Base):
     request: Mapped[Optional[dict]] = mapped_column(JSON)
     response: Mapped[Optional[dict]] = mapped_column(JSON)
     error_code: Mapped[Optional[str]] = mapped_column(String(64))
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
-    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     action: Mapped["PendingAction"] = relationship(back_populates="executions")
 
@@ -329,7 +329,7 @@ class AuditLog(Base):
     entity_type: Mapped[Optional[str]] = mapped_column(String(64))
     entity_id: Mapped[Optional[str]] = mapped_column(String(36))
     extra: Mapped[dict] = mapped_column(JSON, default=dict)
-    at: Mapped[datetime] = mapped_column(DateTime, default=now_utc, index=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, index=True)
 
 
 # ─── Conversations ────────────────────────────────────────────────────────────
@@ -340,8 +340,8 @@ class Conversation(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     channel: Mapped[str] = mapped_column(String(16), default="text")  # text|voice
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
-    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     summary: Mapped[Optional[str]] = mapped_column(Text)
 
     messages: Mapped[list["Message"]] = relationship(back_populates="conversation", cascade="all, delete-orphan")
@@ -356,7 +356,7 @@ class Message(Base):
     role: Mapped[str] = mapped_column(String(16), nullable=False)  # user|assistant|tool
     content: Mapped[str] = mapped_column(Text, default="")
     tool_calls: Mapped[Optional[dict]] = mapped_column(JSON)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_utc)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
 

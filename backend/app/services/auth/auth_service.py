@@ -94,11 +94,13 @@ def create_refresh_token() -> tuple[str, str]:
 async def create_user_session(db: AsyncSession, user_id: str) -> tuple[str, Session]:
     """Create a persistent session record for refresh token tracking."""
     raw_token, hashed_token = create_refresh_token()
-    expires = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     session = Session(
         user_id=user_id,
         refresh_token_hash=hashed_token,
         expires_at=expires,
+        created_at=now,
     )
     db.add(session)
     await db.flush()

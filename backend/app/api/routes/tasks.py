@@ -2,13 +2,14 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, and_
 
 from app.db.session import get_db
 from app.models.models import Task, Project, TaskEvent, User
 from app.core.deps import get_current_user
+from app.core.datetime_utils import validate_timezone_aware
 from app.services.auth.auth_service import write_audit
 from app.services.planner.engine import to_utc_iso
 
@@ -26,6 +27,11 @@ class TaskCreate(BaseModel):
     source: str = "ui"
     lens: Optional[str] = None
 
+    @field_validator("deadline_at")
+    @classmethod
+    def validate_deadline_at(cls, v: Optional[datetime]) -> Optional[datetime]:
+        return validate_timezone_aware(v)
+
 
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
@@ -37,6 +43,11 @@ class TaskUpdate(BaseModel):
     project_id: Optional[str] = None
     status: Optional[str] = None
     lens: Optional[str] = None
+
+    @field_validator("deadline_at")
+    @classmethod
+    def validate_deadline_at(cls, v: Optional[datetime]) -> Optional[datetime]:
+        return validate_timezone_aware(v)
 
 
 def get_task_lens(task: Task) -> Optional[str]:
