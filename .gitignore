@@ -100,6 +100,7 @@ backend/tests/*
 !backend/tests/test_voice_repair.py
 !backend/tests/test_schedule_extraction_cases.py
 !backend/tests/test_demo_initialization.py
+!backend/tests/test_task_events_schema_and_commit.py
 backend/test_live_features.py
 
 # ─── Test, Scratch & Temporary Audit Files ───────────────────────────────────

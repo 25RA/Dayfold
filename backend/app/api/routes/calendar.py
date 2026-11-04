@@ -81,6 +81,15 @@ async def create_event(
     )
     db.add(event)
     await db.flush()
+    try:
+        await db.commit()
+        await db.refresh(event)
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to commit calendar event transaction"
+        ) from exc
     return event_to_dict(event)
 
 

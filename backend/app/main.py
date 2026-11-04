@@ -1,5 +1,6 @@
 from __future__ import annotations
 import logging
+import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.exceptions import RequestValidationError
@@ -40,12 +41,21 @@ app.add_middleware(
 
 
 @app.middleware("http")
-async def add_security_headers(request: Request, call_next):
+async def add_timing_and_security_headers(request: Request, call_next):
+    start_time = time.perf_counter()
     response = await call_next(request)
+    duration_ms = (time.perf_counter() - start_time) * 1000
+    response.headers["X-Response-Time"] = f"{duration_ms:.2f}ms"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+    # Diagnostics logging for authentication and state-modifying requests (without sensitive parameters)
+    if request.url.path.startswith("/api/v1/auth") or request.method in ["POST", "PUT", "PATCH", "DELETE"]:
+        logger.info(
+            f"[API-TIMING] {request.method} {request.url.path} -> {response.status_code} in {duration_ms:.2f}ms"
+        )
     return response
 
 

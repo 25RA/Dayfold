@@ -388,22 +388,40 @@ export async function ensureDemoDataInitialized(
         return d.toISOString();
       };
 
-      // 2. Fetch existing tasks and seed missing ones idempotently using stable markers
+      // 2. Fetch existing tasks and events concurrently (1 roundtrip instead of 2)
+      let existingTasks: any[] | null = null;
+      let existingEvents: any[] | null = null;
+
       try {
-        const existingTasksRes = await customApi.get('/tasks');
-        const existingTasks = extractArray<any>(existingTasksRes.data);
+        const [tasksRes, eventsRes] = await Promise.all([
+          customApi.get('/tasks'),
+          customApi.get('/calendar/events'),
+        ]);
+        existingTasks = extractArray<any>(tasksRes.data);
+        existingEvents = extractArray<any>(eventsRes.data);
+      } catch (fetchErr) {
+        console.warn('Failed to fetch existing records for demo reconciliation:', fetchErr);
+        hasFailure = true;
+      }
 
-        if (!existingTasks) {
-          console.error('Failed to parse /tasks response as a valid array envelope');
-          hasFailure = true;
-        } else {
-          for (const tSpec of config.tasks) {
-            const marker = `[demo_seed:${tSpec.seed_id}]`;
-            const alreadyExists = existingTasks.some(
-              (t) => typeof t?.description === 'string' && t.description.includes(marker)
-            );
+      if (existingTasks === null || existingEvents === null) {
+        console.error('Failed to parse tasks or events envelope; aborting reconciliation');
+        hasFailure = true;
+        return false;
+      }
 
-            if (!alreadyExists) {
+      // 3. Reconcile missing tasks and calendar events in parallel
+      const seedOperations: Promise<void>[] = [];
+
+      for (const tSpec of config.tasks) {
+        const marker = `[demo_seed:${tSpec.seed_id}]`;
+        const alreadyExists = existingTasks.some(
+          (t) => typeof t?.description === 'string' && t.description.includes(marker)
+        );
+
+        if (!alreadyExists) {
+          seedOperations.push(
+            (async () => {
               try {
                 await customApi.post('/tasks', {
                   title: tSpec.title,
@@ -417,31 +435,21 @@ export async function ensureDemoDataInitialized(
                 console.warn(`Failed to seed demo task "${tSpec.title}":`, tErr);
                 hasFailure = true;
               }
-            }
-          }
+            })()
+          );
         }
-      } catch (tasksErr) {
-        console.warn('Failed to fetch/reconcile demo tasks:', tasksErr);
-        hasFailure = true;
       }
 
-      // 3. Fetch existing events and seed missing ones idempotently using stable markers
-      try {
-        const existingEventsRes = await customApi.get('/calendar/events');
-        const existingEvents = extractArray<any>(existingEventsRes.data);
+      for (let i = 0; i < config.events.length; i++) {
+        const eSpec = config.events[i];
+        const marker = `[demo_seed:${eSpec.seed_id}]`;
+        const alreadyExists = existingEvents.some(
+          (e) => typeof e?.description === 'string' && e.description.includes(marker)
+        );
 
-        if (!existingEvents) {
-          console.error('Failed to parse /calendar/events response as a valid array envelope');
-          hasFailure = true;
-        } else {
-          for (let i = 0; i < config.events.length; i++) {
-            const eSpec = config.events[i];
-            const marker = `[demo_seed:${eSpec.seed_id}]`;
-            const alreadyExists = existingEvents.some(
-              (e) => typeof e?.description === 'string' && e.description.includes(marker)
-            );
-
-            if (!alreadyExists) {
+        if (!alreadyExists) {
+          seedOperations.push(
+            (async () => {
               try {
                 const { starts_at, ends_at } = getEventTimes(eSpec, i, config.events.length);
                 await customApi.post('/calendar/events', {
@@ -455,12 +463,13 @@ export async function ensureDemoDataInitialized(
                 console.warn(`Failed to seed demo event "${eSpec.title}":`, eErr);
                 hasFailure = true;
               }
-            }
-          }
+            })()
+          );
         }
-      } catch (eventsErr) {
-        console.warn('Failed to fetch/reconcile demo events:', eventsErr);
-        hasFailure = true;
+      }
+
+      if (seedOperations.length > 0) {
+        await Promise.all(seedOperations);
       }
 
       // 4. Ensure a baseline plan exists (optional optimization)

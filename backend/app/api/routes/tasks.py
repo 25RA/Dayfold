@@ -170,6 +170,15 @@ async def create_task(
     db.add(event)
 
     await write_audit(db, current_user.id, "user", "task.create", "task", task.id)
+    try:
+        await db.commit()
+        await db.refresh(task)
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to commit task transaction"
+        ) from exc
 
     return task_to_dict(task)
 
@@ -228,6 +237,16 @@ async def update_task(
         )
         db.add(event)
 
+    try:
+        await db.commit()
+        await db.refresh(task)
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to commit task update transaction"
+        ) from exc
+
     return task_to_dict(task)
 
 
@@ -256,6 +275,15 @@ async def complete_task(
     )
     db.add(event)
     await write_audit(db, current_user.id, "user", "task.complete", "task", task.id)
+    try:
+        await db.commit()
+        await db.refresh(task)
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to commit task completion transaction"
+        ) from exc
 
     return task_to_dict(task)
 

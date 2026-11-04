@@ -565,19 +565,33 @@ async function ensureDemoDataInitialized(profile, user, customApi = api_default)
         }
         return d.toISOString();
       };
+      let existingTasks = null;
+      let existingEvents = null;
       try {
-        const existingTasksRes = await customApi.get("/tasks");
-        const existingTasks = extractArray(existingTasksRes.data);
-        if (!existingTasks) {
-          console.error("Failed to parse /tasks response as a valid array envelope");
-          hasFailure = true;
-        } else {
-          for (const tSpec of config.tasks) {
-            const marker = `[demo_seed:${tSpec.seed_id}]`;
-            const alreadyExists = existingTasks.some(
-              (t) => typeof t?.description === "string" && t.description.includes(marker)
-            );
-            if (!alreadyExists) {
+        const [tasksRes, eventsRes] = await Promise.all([
+          customApi.get("/tasks"),
+          customApi.get("/calendar/events")
+        ]);
+        existingTasks = extractArray(tasksRes.data);
+        existingEvents = extractArray(eventsRes.data);
+      } catch (fetchErr) {
+        console.warn("Failed to fetch existing records for demo reconciliation:", fetchErr);
+        hasFailure = true;
+      }
+      if (existingTasks === null || existingEvents === null) {
+        console.error("Failed to parse tasks or events envelope; aborting reconciliation");
+        hasFailure = true;
+        return false;
+      }
+      const seedOperations = [];
+      for (const tSpec of config.tasks) {
+        const marker = `[demo_seed:${tSpec.seed_id}]`;
+        const alreadyExists = existingTasks.some(
+          (t) => typeof t?.description === "string" && t.description.includes(marker)
+        );
+        if (!alreadyExists) {
+          seedOperations.push(
+            (async () => {
               try {
                 await customApi.post("/tasks", {
                   title: tSpec.title,
@@ -591,27 +605,19 @@ async function ensureDemoDataInitialized(profile, user, customApi = api_default)
                 console.warn(`Failed to seed demo task "${tSpec.title}":`, tErr);
                 hasFailure = true;
               }
-            }
-          }
+            })()
+          );
         }
-      } catch (tasksErr) {
-        console.warn("Failed to fetch/reconcile demo tasks:", tasksErr);
-        hasFailure = true;
       }
-      try {
-        const existingEventsRes = await customApi.get("/calendar/events");
-        const existingEvents = extractArray(existingEventsRes.data);
-        if (!existingEvents) {
-          console.error("Failed to parse /calendar/events response as a valid array envelope");
-          hasFailure = true;
-        } else {
-          for (let i = 0; i < config.events.length; i++) {
-            const eSpec = config.events[i];
-            const marker = `[demo_seed:${eSpec.seed_id}]`;
-            const alreadyExists = existingEvents.some(
-              (e) => typeof e?.description === "string" && e.description.includes(marker)
-            );
-            if (!alreadyExists) {
+      for (let i = 0; i < config.events.length; i++) {
+        const eSpec = config.events[i];
+        const marker = `[demo_seed:${eSpec.seed_id}]`;
+        const alreadyExists = existingEvents.some(
+          (e) => typeof e?.description === "string" && e.description.includes(marker)
+        );
+        if (!alreadyExists) {
+          seedOperations.push(
+            (async () => {
               try {
                 const { starts_at, ends_at } = getEventTimes(eSpec, i, config.events.length);
                 await customApi.post("/calendar/events", {
@@ -625,12 +631,12 @@ async function ensureDemoDataInitialized(profile, user, customApi = api_default)
                 console.warn(`Failed to seed demo event "${eSpec.title}":`, eErr);
                 hasFailure = true;
               }
-            }
-          }
+            })()
+          );
         }
-      } catch (eventsErr) {
-        console.warn("Failed to fetch/reconcile demo events:", eventsErr);
-        hasFailure = true;
+      }
+      if (seedOperations.length > 0) {
+        await Promise.all(seedOperations);
       }
       try {
         const plansRes = await customApi.get("/plans");
@@ -772,7 +778,7 @@ var useAuthStore = create2((set) => ({
    * authentication tokens, and initialization locks from browser storage. It safely revokes
    * the active session on the backend via /auth/logout, but DOES NOT delete historical backend
    * records (tasks, events, plans) from the database.
-   * 
+   *
    * Safety guard: This operation is strictly restricted to verified demo accounts
    * (emails matching demo.*@dayfold.app) and will never clear normal registered user data.
    */

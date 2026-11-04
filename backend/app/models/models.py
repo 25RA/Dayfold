@@ -303,10 +303,10 @@ class ActionExecution(Base):
     __tablename__ = "action_executions"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
-    pending_action_id: Mapped[str] = mapped_column(String(36), ForeignKey("pending_actions.id"), nullable=False, index=True)
+    pending_action_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("pending_actions.id"), nullable=True, index=True)
     step_index: Mapped[int] = mapped_column(Integer, default=0)
     operation: Mapped[str] = mapped_column(String(64), nullable=False)
-    idempotency_key: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="pending")
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     request: Mapped[Optional[dict]] = mapped_column(JSON)
