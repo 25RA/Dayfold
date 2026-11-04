@@ -93,7 +93,13 @@ lerna-debug.log*
 
 # Exclude test suites, acceptance tests, regression tests, and test runners
 backend/tests/*
+!backend/tests/conftest.py
 !backend/tests/test_timezone_aware_input_regression.py
+!backend/tests/test_session_datetime_regression.py
+!backend/tests/test_auth_signup_onboarding_regression.py
+!backend/tests/test_voice_repair.py
+!backend/tests/test_schedule_extraction_cases.py
+!backend/tests/test_demo_initialization.py
 backend/test_live_features.py
 
 # ─── Test, Scratch & Temporary Audit Files ───────────────────────────────────

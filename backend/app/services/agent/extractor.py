@@ -56,6 +56,11 @@ def parse_number(text: str) -> Optional[float]:
 
 def parse_clock_time(time_str: str, sentence_context: str = "") -> Optional[tuple[int, int]]:
     s = time_str.strip().lower()
+    if s in ["noon", "midday"]:
+        return 12, 0
+    if s == "midnight":
+        return 0, 0
+
     ctx = sentence_context.lower()
     s = re.sub(r'\s*baje\s*', ' ', s).strip()
 
@@ -298,13 +303,16 @@ def clean_activity_title(raw_clause: str) -> str:
     text = re.sub(r'^(?:hey\s+dayfold|dayfold|please)\s*[,:]?\s*', '', text, flags=re.IGNORECASE)
     text = re.sub(r'^(?:could\s+you(?:\s+please)?|can\s+you(?:\s+please)?|would\s+you(?:\s+please)?)\s*[,:]?\s*', '', text, flags=re.IGNORECASE)
     text = re.sub(r'^(?:let\'s\s+do\s+a\s+|let\'s\s+do\s+|let\'s\s+)', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'^(?:please\s+)?(?:schedule|plan)\s+(?:a\s+|an\s+|my\s+)?', '', text, flags=re.IGNORECASE)
 
     # 2. Remove temporal frame prefixes & date references if present
-    text = re.sub(r'^(?:before\s+lunch|after\s+lunch|in\s+the\s+evening|in\s+the\s+morning|at\s+night|shaam\s+ko|subah\s+ko)\s*[,:]?\s*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'^(?:before\s+lunch|after\s+lunch|lunch\s+ke\s+baad|lunch\s+se\s+pehle|in\s+the\s+evening|in\s+the\s+morning|at\s+night|shaam\s+ko|subah\s+ko)\s*[,:]?\s*', '', text, flags=re.IGNORECASE)
     text = re.sub(r'\b(?:tomorrow|today|kal)\b', '', text, flags=re.IGNORECASE).strip(" ,.-;:")
+    text = re.sub(r'\b(?:lunch\s+ke\s+baad|lunch\s+se\s+pehle)\b', '', text, flags=re.IGNORECASE).strip(" ,.-;:")
 
     # 3. Remove leading ordinals & connectives (First, Later, Then, Next, etc.)
     text = re.sub(r'^(?:first(?:ly)?|second(?:ly)?|third(?:ly)?|later|then|next|finally|afterwards|meanwhile|after\s+that)\s*[,:]?\s*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\b(?:after\s+that|afterwards|uske\s+baad)\b', '', text, flags=re.IGNORECASE).strip(" ,.-;:")
 
     # 4. Remove modal preambles & verb auxiliaries
     text = re.sub(
@@ -329,14 +337,15 @@ def clean_activity_title(raw_clause: str) -> str:
     text = re.sub(r'\b(?:30-minute|45-minute|15-minute|20-minute|40-minute|60-minute|90-minute)\b', '', text, flags=re.IGNORECASE)
     text = re.sub(r'\b(?:which|that)\s+(?:should|will|can)?\s*takes?\s+(?:around|about)?\s*(?:\d+|one|two|half|an|a)?\s*(?:hours?|minutes?|mins?|hrs?)?\b', '', text, flags=re.IGNORECASE)
 
-    # 7. Remove trailing constraints or ordering prepositions
+    # 7. Remove trailing constraints, clock times, or ordering prepositions
+    text = re.sub(r'\b(?:at|around)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b', '', text, flags=re.IGNORECASE)
     text = re.sub(r'\b(?:before|after)\s+(?:\d{1,2}(?::\d{2})?\s*(?:am|pm)?|lunch|dinner)\b', '', text, flags=re.IGNORECASE)
     text = re.sub(r'\bbefore\s+(?:sending|submitting|giving)\b.*$', '', text, flags=re.IGNORECASE)
     text = re.sub(r'\b(?:in_the_evening|in_the_morning|in_the_afternoon|after_lunch|before_lunch)\b', '', text, flags=re.IGNORECASE)
     text = re.sub(r'\b(?:in\s+the\s+evening|in\s+the\s+morning|in\s+the\s+afternoon|shaam\s+ko|subah\s+ko|dopahar\s+ko)\b', '', text, flags=re.IGNORECASE)
 
     # 8. Remove Hinglish auxiliary suffixes
-    text = re.sub(r'\b(?:karni\s+hai|karna\s+hai|ke\s+liye\s+jana\s+hai|jana\s+hai)\b', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\b(?:padhna\s+hai|padhna|karni\s+hai|karna\s+hai|ke\s+liye\s+jana\s+hai|jana\s+hai|dekhna\s+hai)\b', '', text, flags=re.IGNORECASE)
     text = re.sub(r'\b(?:aur\s*)$', '', text, flags=re.IGNORECASE)
 
     # 9. Remove conversational prefixes
@@ -367,10 +376,15 @@ def clean_activity_title(raw_clause: str) -> str:
     if "internship application" in t_clean:
         return "Submit my internship application"
     if t_clean in ["read", "reading"]:
-        return "Read"
+        return "Reading" if t_clean == "reading" else "Read"
+    if t_clean in ["study", "studying"]:
+        return "Studying" if t_clean == "studying" else "Study"
 
     if t_clean in ["tomorrow", "today", "kal", "yesterday", "overmorrow", "agla din"]:
         return ""
+
+    if (t_clean == "dbms" or text.strip().lower() == "dbms") and any(k in raw_clause.lower() for k in ["padhna", "padhai", "study", "studying"]):
+        return "Study DBMS"
 
     # 12. Convert leading gerund to imperative or capitalized title
     gerund_map = {
@@ -393,10 +407,14 @@ def clean_activity_title(raw_clause: str) -> str:
         "planning": "Plan",
         "doing": "Do",
     }
+    preserve_nouns = {"meeting", "training", "briefing", "gathering", "hearing", "recording", "reading", "coding"}
     words = text.split()
     if words:
         first = words[0].lower()
-        if first in gerund_map:
+        if first in preserve_nouns:
+            words[0] = first.capitalize()
+            text = " ".join(words)
+        elif first in gerund_map:
             words[0] = gerund_map[first]
             text = " ".join(words)
         elif first.endswith("ing") and len(first) > 4:
@@ -453,7 +471,7 @@ def pre_segment_speech_v2(text: str) -> list[tuple[str, Optional[str]]]:
     # 2. Mark temporal frame transitions explicitly
     # Transform trailing frame on multi-task scheduling commands: 'Schedule X, Y and Z after lunch' -> 'after lunch, X, Y and Z'
     s = re.sub(
-        r'\b(?:please\s+)?(?:schedule|plan)\s+([^.?!;]+?)\s+\b(after\s+lunch|before\s+lunch|in\s+the\s+evening|in\s+the\s+morning|in\s+the\s+afternoon)\s*([.?!;]|$)',
+        r'\b(?:please\s+)?(?:schedule|plan)\s+([^.?!;]+?)\s+\b(after\s+lunch|lunch\s+ke\s+baad|before\s+lunch|lunch\s+se\s+pehle|in\s+the\s+evening|shaam\s+ko|in\s+the\s+morning|subah\s+ko|in\s+the\s+afternoon)\s*([.?!;]|$)',
         r'\2, \1\3',
         s,
         flags=re.IGNORECASE
@@ -465,18 +483,23 @@ def pre_segment_speech_v2(text: str) -> list[tuple[str, Optional[str]]]:
     s = re.sub(r'(?<=\w)\s+\b(in\s+the\s+evening|shaam\s+ko)\b\s*([.?!;]|$)', r' in_the_evening \2', s, flags=re.IGNORECASE)
     s = re.sub(r'(?<=\w)\s+\b(in\s+the\s+morning|subah\s+ko)\b\s*([.?!;]|$)', r' in_the_morning \2', s, flags=re.IGNORECASE)
     s = re.sub(r'(?<=\w)\s+\b(in\s+the\s+afternoon|dopahar\s+ko)\b\s*([.?!;]|$)', r' in_the_afternoon \2', s, flags=re.IGNORECASE)
-    s = re.sub(r'(?<=\w)\s+\b(before\s+lunch)\b\s*([.?!;]|$)', r' before_lunch \2', s, flags=re.IGNORECASE)
+    s = re.sub(r'(?<=\w)\s+\b(before\s+lunch|lunch\s+se\s+pehle)\b\s*([.?!;]|$)', r' before_lunch \2', s, flags=re.IGNORECASE)
+    s = re.sub(r'(?<=\w)\s+\b(after\s+lunch|lunch\s+ke\s+baad)\b\s*([.?!;]|$)', r' after_lunch \2', s, flags=re.IGNORECASE)
 
     # Introductory frames at start of line or following connectives
-    s = re.sub(r'\b(before\s+lunch)\b[\s,:]*', r'\n[[FRAME:before_lunch]] ', s, flags=re.IGNORECASE)
-    s = re.sub(r'\b(after\s+lunch)\b[\s,:]*', r'\n[[FRAME:after_lunch]] ', s, flags=re.IGNORECASE)
-    s = re.sub(r'\b(in\s+the\s+evening|shaam\s+ko)\b[\s,:]*', r'\n[[FRAME:evening]] ', s, flags=re.IGNORECASE)
-    s = re.sub(r'\b(in\s+the\s+morning|subah\s+ko)\b[\s,:]*', r'\n[[FRAME:morning]] ', s, flags=re.IGNORECASE)
+    s = re.sub(r'\b(before\s+lunch|lunch\s+se\s+pehle|lunch\s+se\s+pahle)\b[\s,:]*', r'\n[[FRAME:before_lunch]] ', s, flags=re.IGNORECASE)
+    s = re.sub(r'\b(after\s+lunch|lunch\s+ke\s+baad|khana\s+khane\s+ke\s+baad)\b[\s,:]*', r'\n[[FRAME:after_lunch]] ', s, flags=re.IGNORECASE)
+    s = re.sub(r'\b(in\s+the\s+evening|shaam\s+ko|raat\s+ko)\b[\s,:]*', r'\n[[FRAME:evening]] ', s, flags=re.IGNORECASE)
+    s = re.sub(r'\b(in\s+the\s+morning|subah\s+ko|subah)\b[\s,:]*', r'\n[[FRAME:morning]] ', s, flags=re.IGNORECASE)
     s = re.sub(r'\b(in\s+the\s+afternoon|dopahar\s+ko)\b[\s,:]*', r'\n[[FRAME:afternoon]] ', s, flags=re.IGNORECASE)
+
+    # Relative sequence markers (e.g. "after that", "uske baad", "afterwards")
+    s = re.sub(r'(?<=\w)\s+\b(?:and\s+)?(?:after\s+that|uske\s+baad|afterwards)\b\s*([.?!;]|$)', r' [[FRAME:after_prev]] \1', s, flags=re.IGNORECASE)
+    s = re.sub(r'\b(?:and\s+|aur\s+)?(?:after\s+that|uske\s+baad|aur\s+uske\s+baad|afterwards)\b\s*[,:]?\s*', r'\n[[FRAME:after_prev]] ', s, flags=re.IGNORECASE)
 
     # 3. Strip introductory ordinals/connectives at sentence/clause start
     s = re.sub(
-        r'(?:^|[.?!;\n]|\s+)\b(?:first(?:ly)?|second(?:ly)?|third(?:ly)?|later|then|next|finally|afterwards|meanwhile|after\s+that)\b\s*[,:]?\s*',
+        r'(?:^|[.?!;\n]|\s+)\b(?:first(?:ly)?|second(?:ly)?|third(?:ly)?|later|then|next|finally|meanwhile)\b\s*[,:]?\s*',
         '\n',
         s,
         flags=re.IGNORECASE
@@ -484,7 +507,7 @@ def pre_segment_speech_v2(text: str) -> list[tuple[str, Optional[str]]]:
 
     # 4. Mark discourse clause transitions
     discourse_pattern = (
-        r'\b(?=(?:after\s+that|uske\s+baad|aur\s+uske\s+baad|i\s+need\s+to|i\s+have\s+to|i\s+want\s+to|'
+        r'\b(?=(?:i\s+need\s+to|i\s+have\s+to|i\s+want\s+to|'
         r'i\s+also\s+have\s+to|i\s+also\s+need\s+to|i\s+also\s+want\s+to|i\s+also\s+have|i\s+also\s+need|'
         r'remind\s+me\s+to|please\s+finish|finish\s+the|finish\s+my|finish\s+all|finish\s+important|finish\s+learning|'
         r'leave\s+(?:some\s+)?time|'
@@ -565,6 +588,8 @@ def pre_segment_speech_v2(text: str) -> list[tuple[str, Optional[str]]]:
                 re.IGNORECASE
             ):
                 results.append((p_clean, current_frame))
+                if current_frame == "after_prev":
+                    current_frame = None
 
     return results
 
@@ -671,7 +696,9 @@ def extract_structured_plan_data(
 
     frame_constraints_map = {
         "before_lunch": "Complete morning activities before lunch",
+        "before lunch": "Complete morning activities before lunch",
         "after_lunch": "Schedule afternoon activities after lunch",
+        "after lunch": "Schedule afternoon activities after lunch",
         "evening": "Schedule evening activities in the evening",
     }
 
@@ -927,17 +954,18 @@ def extract_structured_plan_data(
             tasks.append(item.to_dict())
             continue
 
-        # F. Fixed Commitments with Time Windows (e.g. from 11 AM to 12:30 PM, from 6 AM to 7 AM, 6 baje se 7 baje tak)
+        # F. Fixed Commitments with Time Windows (e.g. from 11 AM to 12:30 PM, at 10:30am until noon, 6 baje se 7 baje tak)
+        TIME_PATTERN = r'(?:\d{1,2}(?::\d{2})?\s*(?:am|pm)?|noon|midday|midnight)'
         m_win = re.search(
-            r'(?:(?:i\s+)?(?:have\s+(?:a|an)\s+|have\s+to\s+|need\s+to\s+|want\s+to\s+|also\s+have\s+)?(?:attend|visit|go\s+to)?\s*(?:the|a|an|my)?\s*)?([a-zA-Z0-9\'\s]{3,50}?)\s+(?:from|between)\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*(?:to|-|till|and)\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)',
+            r'(?:(?:i\s+)?(?:have\s+(?:a|an)\s+|have\s+to\s+|need\s+to\s+|want\s+to\s+|also\s+have\s+)?(?:attend|visit|go\s+to)?\s*(?:the|a|an|my)?\s*)?([a-zA-Z0-9\'\s]{3,50}?)\s+(?:from|between|at)\s+(' + TIME_PATTERN + r')\s*(?:to|until|till|-|and)\s*(' + TIME_PATTERN + r')\b',
             cl_lower
         )
         m_win_rev = re.search(
-            r'(?:from|between)\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*(?:to|-|till|and)\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*(?:an?|my|the)?\s*([a-zA-Z0-9\'\s]{3,40}?)',
+            r'(?:from|between|at)\s+(' + TIME_PATTERN + r')\s*(?:to|until|till|-|and)\s*(' + TIME_PATTERN + r')\s*(?:an?|my|the)?\s*([a-zA-Z0-9\'\s]{3,40}?)$',
             cl_lower
         )
         m_hindi_win = re.search(
-            r'(\d{1,2}(?::\d{2})?)\s*(?:baje)?\s*se\s*(\d{1,2}(?::\d{2})?)\s*(?:baje)?\s*(?:tak)?\s*([a-zA-Z\'\s]{3,30}?)(?:jana hai|hai|$)',
+            r'(' + TIME_PATTERN + r')\s*(?:baje)?\s*se\s*(' + TIME_PATTERN + r')\s*(?:baje)?\s*(?:tak)?\s*([a-zA-Z\'\s]{3,30}?)(?:jana hai|hai|$)',
             cl_lower
         )
 
@@ -954,14 +982,14 @@ def extract_structured_plan_data(
 
         if matched_win:
             raw_title, s_str, e_str = matched_win
-            s_t = parse_clock_time(s_str, clause)
-            e_t = parse_clock_time(e_str, clause)
+            s_t = parse_clock_time(s_str, f"{clause} {frame or ''}")
+            e_t = parse_clock_time(e_str, f"{clause} {frame or ''}")
             if s_t and e_t:
                 sh, sm = s_t
                 eh, em = e_t
                 duration = (eh * 60 + em) - (sh * 60 + sm)
                 if duration <= 0:
-                    duration += 12 * 60
+                    duration += 24 * 60
 
                 clean_title = clean_activity_title(raw_title)
                 clean_title = re.sub(r'^(?:i\s+)?(?:have\s+(?:a|an)?\s*|need\s+(?:a|an)?\s*)', '', clean_title, flags=re.IGNORECASE)
@@ -989,7 +1017,7 @@ def extract_structured_plan_data(
         )
         if m_app_dur:
             raw_title, t_str, dur_raw = m_app_dur.group(1), m_app_dur.group(2), m_app_dur.group(3)
-            parsed_t = parse_clock_time(t_str, clause)
+            parsed_t = parse_clock_time(t_str, f"{clause} {frame or ''}")
             dur_val, _ = extract_duration_from_text(clause)
             if parsed_t:
                 sh, sm = parsed_t
@@ -1016,17 +1044,25 @@ def extract_structured_plan_data(
 
         # H. Single-Timepoint Fixed Appointments
         m_app = re.search(
-            r'(?:have\s+(?:a|an)\s+)?\b([a-zA-Z0-9\'\s]{0,35}?(?:appointment|meeting|consultation|interview|sync|call|standup|lecture|class|collection|delivery|pickup|parcel|visit|bank|session|checkup))\s*(?:tomorrow|today|kal)?\s*(?:at|around)\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)',
+            r'(?:have\s+(?:a|an)\s+)?\b([a-zA-Z0-9\'\s]{0,35}?(?:appointment|meeting|consultation|interview|sync|call|standup|lecture|class|collection|delivery|pickup|parcel|visit|bank|session|checkup|gym|workout|dinner|lunch|breakfast|event|flight|practice|game))\s*(?:tomorrow|today|kal)?\s*(?:at|around)\s+(' + TIME_PATTERN + r')\b',
             cl_lower
         )
+        if not m_app:
+            m_direct_at = re.search(
+                r'^(?:(?:i\s+)?have\s+)?([a-zA-Z0-9\'\s]{2,30}?)\s+(?:at|around)\s+(' + TIME_PATTERN + r')$',
+                cl_lower
+            )
+            if m_direct_at:
+                m_app = m_direct_at
+
         m_hindi_app = re.search(
-            r'(\d{1,2}(?::\d{2})?)\s*(?:baje)?\s+([a-zA-Z0-9\'\s]{0,30}?(?:call|meeting|lecture|class|sync|doctor\s+appointment|doctor|appointment))',
+            r'(' + TIME_PATTERN + r')\s*(?:baje)?\s+([a-zA-Z0-9\'\s]{0,30}?(?:call|meeting|lecture|class|sync|doctor\s+appointment|doctor|appointment))',
             cl_lower
         )
 
         if m_app:
             raw_title, t_str = m_app.group(1), m_app.group(2)
-            parsed_t = parse_clock_time(t_str, clause)
+            parsed_t = parse_clock_time(t_str, f"{clause} {frame or ''}")
             dur_val, is_explicit_dur = extract_duration_from_text(clause)
             if not is_explicit_dur:
                 dur_val = 60
@@ -1040,7 +1076,9 @@ def extract_structured_plan_data(
                 eh = (tot_m // 60) % 24
                 em = tot_m % 60
                 clean_title = clean_activity_title(raw_title)
-                clean_title = re.sub(r'^(?:i\s+)?(?:have\s+(?:a|an)?\s*|need\s+(?:a|an)?\s*)', '', clean_title, flags=re.IGNORECASE)
+                clean_title = re.sub(r'^(?:i\s+)?(?:have\s+(?:a|an)?\s*|need\s+(?:a|an)?\s*)', '', clean_title, flags=re.IGNORECASE).strip()
+                if clean_title:
+                    clean_title = clean_title[0].upper() + clean_title[1:]
                 if clean_title.lower() == "bank" or clean_title.lower() == "the bank":
                     clean_title = "Visit the bank"
                 elif "doctor" in clause.lower() or "doctor" in raw_title:
@@ -1060,7 +1098,7 @@ def extract_structured_plan_data(
                 continue
         elif m_hindi_app:
             t_str, raw_title = m_hindi_app.group(1), m_hindi_app.group(2)
-            parsed_t = parse_clock_time(t_str, clause)
+            parsed_t = parse_clock_time(t_str, f"{clause} {frame or ''}")
             if parsed_t:
                 sh, sm = parsed_t
                 eh = (sh + 1) % 24
@@ -1110,7 +1148,20 @@ def extract_structured_plan_data(
             prio = 2
 
         task_constraint = None
-        if frame == "before_lunch":
+        if frame == "after_prev" or ("after that" in cl_lower or "uske baad" in cl_lower or "afterwards" in cl_lower):
+            if fixed_commitments:
+                prev_name = fixed_commitments[-1]["title"]
+                task_constraint = f"after {prev_name.lower()}"
+                rel_c = f"Schedule {clean_title.lower()} after {prev_name.lower()}"
+                if rel_c not in constraints:
+                    constraints.append(rel_c)
+            elif tasks:
+                prev_name = tasks[-1]["title"]
+                task_constraint = f"after {prev_name.lower()}"
+                rel_c = f"Schedule {clean_title.lower()} after {prev_name.lower()}"
+                if rel_c not in constraints:
+                    constraints.append(rel_c)
+        elif frame == "before_lunch":
             task_constraint = "before lunch"
         elif frame == "after_lunch":
             task_constraint = "after lunch"

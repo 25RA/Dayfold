@@ -221,10 +221,10 @@ export const ExtractionReviewCard: React.FC<ExtractionReviewCardProps> = ({
           <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div className="space-y-1">
             <h5 className="font-semibold text-amber-900 dark:text-amber-200">
-              Rule-Based Fallback Extraction Used
+              Deterministic Schedule Extraction Active
             </h5>
             <p className="text-amber-800 dark:text-amber-300 font-sans leading-relaxed text-[11px]">
-              {extraction.fallback_reason || 'Gemini AI is momentarily unavailable. Extracted using basic pattern rules.'}
+              {extraction.fallback_reason || 'Deterministic pattern engine active. Extracted using standard schedule rules.'}
               <span className="block mt-0.5 text-amber-900/80 dark:text-amber-200/80 font-medium">
                 Please review titles, durations, and commitments below before generating the plan.
               </span>
